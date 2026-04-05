@@ -1,0 +1,15 @@
+codigo,atividade,responsavel,sprint_1,sprint_2,sprint_3,sprint_4
+1.1,Planejamento do projeto,PM,X,,,
+1.2,Requisitos backlog riscos e baseline,PM+Time,X,,,
+1.3,Artefatos da apresentação 1,PM+QA/Docs,X,,,
+2.1,Wireframes e identidade visual base,Designer/UX,X,,,
+2.2,Engine de jogo: turnos e rodadas,Dev Gameplay,,X,,
+2.3,Engine de jogo: sítios artefatos e conselheiros,Dev Gameplay,,X,,
+2.4,Interface da partida,Dev Frontend,,,X,
+2.5,Menu setup e tutorial resumido,Dev Frontend,X,,,
+2.6,Persistência local e continuar partida,Dev Frontend,,X,,
+2.7,Ranking local,Dev Frontend,,,X,
+2.8,Smoke tests e validação de regras,QA/Docs,,,X,
+3.1,Repositório Git fluxo de branches e issues,PM+Devs,X,X,X,X
+3.2,Automação básica de teste e deploy estático,Dev Frontend,,,,X
+3.3,Polimento final e documentação pública,Time,,,,X
