@@ -25,6 +25,23 @@ function createArtifactBag() {
   return Object.fromEntries(ARTIFACT_TYPES.map((artifact) => [artifact.key, 0]));
 }
 
+function getArtifactLabel(artifactKey, count = 1) {
+  const artifact = ARTIFACT_TYPES.find((item) => item.key === artifactKey);
+  if (!artifact) {
+    return artifactKey;
+  }
+
+  if (count <= 1) {
+    return artifact.name;
+  }
+
+  if (artifact.key === "idolo") {
+    return "Ídolos";
+  }
+
+  return `${artifact.name}s`;
+}
+
 function createPlayer(name, index) {
   return {
     id: `player-${index + 1}`,
@@ -142,7 +159,7 @@ function prepareRound(state, rng = Math.random) {
         roundStatus: "active",
         log: [
           ...state.log,
-          `Rodada ${state.currentRound} preparada com ${activeSites.length} sitios ativos.`,
+          `Rodada ${state.currentRound} preparada com ${activeSites.length} sítios ativos.`,
         ],
       };
     }
@@ -150,7 +167,7 @@ function prepareRound(state, rng = Math.random) {
     attempts += 1;
   }
 
-  throw new Error("Nao foi possivel preparar uma rodada jogavel.");
+  throw new Error("Não foi possível preparar uma rodada jogável.");
 }
 
 function validatePlayerNames(playerNames) {
@@ -159,7 +176,7 @@ function validatePlayerNames(playerNames) {
   }
 
   if (playerNames.some((name) => !String(name).trim())) {
-    throw new Error("Todos os jogadores precisam ter um nome valido.");
+    throw new Error("Todos os jogadores precisam ter um nome válido.");
   }
 }
 
@@ -225,7 +242,7 @@ function finalizeGame(state) {
     status: "finished",
     players,
     winnerId: sortedPlayers[0]?.id ?? null,
-    log: [...state.log, "Partida encerrada e pontuacao final calculada."],
+    log: [...state.log, "Partida encerrada e pontuação final calculada."],
   };
 }
 
@@ -244,7 +261,7 @@ export function getPlayableSitesForSpecialist(state, specialistKey) {
 export function createGame(config = {}, rng = Math.random) {
   const {
     playerNames = ["Jogadora 1", "Jogador 2"],
-    tableName = "Mesa de Expedicao",
+    tableName = "Mesa de Expedição",
     rounds = DEFAULT_ROUNDS,
     handSize = HAND_SIZE,
     siteTemplates = SITE_TEMPLATES,
@@ -276,7 +293,7 @@ export function createGame(config = {}, rng = Math.random) {
 
 export function performExpedition(state, action, rng = Math.random) {
   if (state.status !== "active") {
-    throw new Error("A partida ja foi encerrada.");
+    throw new Error("A partida já foi encerrada.");
   }
 
   const { specialistId, siteId } = action ?? {};
@@ -288,19 +305,19 @@ export function performExpedition(state, action, rng = Math.random) {
   );
 
   if (specialistIndex === -1) {
-    throw new Error("Especialista invalido para o jogador atual.");
+    throw new Error("Especialista inválido para o jogador atual.");
   }
 
   const siteIndex = next.activeSites.findIndex((site) => site.id === siteId);
   if (siteIndex === -1) {
-    throw new Error("Sitio arqueologico invalido.");
+    throw new Error("Sítio arqueológico inválido.");
   }
 
   const specialist = currentPlayer.hand[specialistIndex];
   const site = next.activeSites[siteIndex];
 
   if (!specialistPlayableOnSite(specialist.key, site)) {
-    throw new Error("Esse especialista nao pode atuar nesse sitio.");
+    throw new Error("Esse especialista não pode atuar nesse sítio.");
   }
 
   currentPlayer.hand.splice(specialistIndex, 1);
@@ -321,7 +338,7 @@ export function performExpedition(state, action, rng = Math.random) {
   };
 
   next.log.push(
-    `${currentPlayer.name} concluiu ${site.name} usando ${specialist.name} e recebeu ${site.reward} ${site.artifactType}.`,
+    `${currentPlayer.name} concluiu ${site.name} usando ${specialist.name} e recebeu ${site.reward} ${getArtifactLabel(site.artifactType, site.reward)}.`,
   );
 
   const roundFinished = next.players.every((player) => player.hand.length === 0);

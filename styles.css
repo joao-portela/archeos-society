@@ -9,6 +9,9 @@
   --accent-strong: #f1ba57;
   --line: rgba(255, 232, 194, 0.16);
   --shadow: 0 18px 48px rgba(56, 35, 22, 0.24);
+  --font-body: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+  --font-heading: "Trebuchet MS", "Segoe UI Semibold", "Segoe UI", Verdana, sans-serif;
+  --font-display: "Agency FB", "Haettenschweiler", "Arial Narrow Bold", Impact, sans-serif;
 }
 
 * {
@@ -18,7 +21,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-body);
   background:
     radial-gradient(circle at top left, rgba(208, 140, 53, 0.28), transparent 30%),
     radial-gradient(circle at bottom right, rgba(91, 58, 38, 0.35), transparent 32%),
@@ -77,6 +80,7 @@ select {
 }
 
 .eyebrow {
+  font-family: var(--font-heading);
   color: var(--accent-strong);
   text-transform: uppercase;
   letter-spacing: 0.18em;
@@ -85,9 +89,13 @@ select {
 
 .hero h1 {
   margin: 12px 0;
-  font-size: clamp(2.3rem, 4vw, 4.2rem);
-  line-height: 1;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 4.8vw, 5.4rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 0.9;
   color: var(--text);
+  text-transform: uppercase;
 }
 
 .hero__text {
@@ -98,6 +106,8 @@ select {
 }
 
 .hero__badge {
+  font-family: var(--font-heading);
+  font-weight: 700;
   align-self: flex-start;
   padding: 10px 14px;
   border-radius: 999px;
@@ -121,6 +131,9 @@ select {
 }
 
 .menu-button {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
   width: 100%;
   border: 1px solid rgba(255, 227, 182, 0.16);
   border-radius: 18px;
@@ -154,12 +167,18 @@ select {
 
 .screen-title {
   margin: 0 0 8px;
+  font-family: var(--font-heading);
   font-size: clamp(1.8rem, 3vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
   color: #2d1c12;
 }
 
 .screen-subtitle {
   margin: 0 0 24px;
+  font-family: var(--font-heading);
+  font-size: 1.04rem;
+  font-weight: 600;
   color: #684b37;
   line-height: 1.6;
   max-width: 60ch;
@@ -184,6 +203,8 @@ select {
 
 .panel h3 {
   margin-top: 0;
+  font-family: var(--font-heading);
+  font-weight: 700;
   color: #4c3120;
 }
 
@@ -211,6 +232,8 @@ select {
 }
 
 .field label {
+  font-family: var(--font-heading);
+  font-weight: 700;
   font-weight: 600;
   color: #4c3120;
 }
@@ -233,6 +256,8 @@ select {
 
 .primary-button,
 .secondary-button {
+  font-family: var(--font-heading);
+  font-weight: 700;
   border: none;
   border-radius: 14px;
   padding: 12px 18px;
@@ -257,6 +282,8 @@ select {
 }
 
 .status-pill {
+  font-family: var(--font-heading);
+  font-weight: 700;
   padding: 10px 14px;
   border-radius: 999px;
   background: rgba(208, 140, 53, 0.12);
@@ -324,6 +351,7 @@ select {
 .site-header h3,
 .player-card h3 {
   margin: 0 0 4px;
+  font-family: var(--font-heading);
 }
 
 .site-points,

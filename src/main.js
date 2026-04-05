@@ -18,7 +18,7 @@ const defaultPlayers = ["Ayla", "Bruno", "Caio", "Dani", "Enzo"];
 
 const appState = {
   screen: "home",
-  tableName: "Mesa da apresentacao",
+  tableName: "Mesa da apresentação",
   playerCount: 2,
   playerNames: defaultPlayers.slice(0, 2),
   game: loadCurrentGame(),
@@ -121,7 +121,7 @@ function startNewGame() {
   ensurePlayerDraft();
 
   appState.game = createGame({
-    tableName: appState.tableName.trim() || "Mesa da apresentacao",
+    tableName: appState.tableName.trim() || "Mesa da apresentação",
     playerNames: appState.playerNames.map((name, index) => {
       return name.trim() || `Jogador ${index + 1}`;
     }),
@@ -192,7 +192,7 @@ function clearCurrentGame() {
 }
 
 function resetDraft() {
-  appState.tableName = "Mesa da apresentacao";
+  appState.tableName = "Mesa da apresentação";
   appState.playerCount = 2;
   appState.playerNames = defaultPlayers.slice(0, 2);
   render();
@@ -226,16 +226,16 @@ function renderHomeScreen() {
 
   const continueHint = appState.game
     ? `<p class="meta">Existe uma partida salva pronta para continuar no menu lateral.</p>`
-    : `<p class="meta">Ainda nao ha partida salva no navegador.</p>`;
+    : `<p class="meta">Ainda não há partida salva no navegador.</p>`;
 
   return `
     ${screenHeader(
       "Configurar nova partida",
-      "Monte uma mesa local com 2 a 5 jogadores. Esta entrega ja executa o loop principal da partida em hot-seat."
+      "Monte uma mesa local com 2 a 5 jogadores. Esta entrega já executa o loop principal da partida em hot-seat."
     )}
     <div class="content-grid">
       <section class="panel">
-        <h3>Setup rapido</h3>
+        <h3>Setup rápido</h3>
         <div class="form-grid">
           <div class="field">
             <label for="player-count">Quantidade de jogadores</label>
@@ -254,7 +254,7 @@ function renderHomeScreen() {
             <input
               id="table-name"
               value="${escapeHtml(appState.tableName)}"
-              placeholder="Mesa da apresentacao"
+              placeholder="Mesa da apresentação"
               data-field="tableName"
             />
           </div>
@@ -274,7 +274,7 @@ function renderHomeScreen() {
         <h3>Escopo desta demo</h3>
         <p class="meta">
           Menu principal, setup, partida local em turnos, coleta de artefatos,
-          pontuacao por conselheiros, ranking local e autosave por navegador.
+          pontuação por conselheiros, ranking local e autosave por navegador.
         </p>
         ${continueHint}
       </section>
@@ -287,7 +287,7 @@ function renderContinueScreen() {
     return `
       ${screenHeader(
         "Continuar partida",
-        "O autosave fica armazenado no navegador para a demo."
+        "O autosave fica armazenado no navegador para a demonstração."
       )}
       <section class="panel empty-state">
         <h3>Nenhuma partida salva</h3>
@@ -298,13 +298,13 @@ function renderContinueScreen() {
 
   const winnerLabel =
     appState.game.status === "finished"
-      ? `<p class="meta">Status: encerrada. Pontuacao final ja calculada.</p>`
+      ? `<p class="meta">Status: encerrada. Pontuação final já calculada.</p>`
       : `<p class="meta">Status: em andamento na rodada ${appState.game.currentRound}.</p>`;
 
   return `
     ${screenHeader(
       "Continuar partida",
-      "Retome a mesa salva ou limpe o autosave para preparar outra apresentacao."
+      "Retome a mesa salva ou limpe o autosave para preparar outra apresentação."
     )}
     <section class="panel">
       <h3>${escapeHtml(appState.game.tableName)}</h3>
@@ -331,7 +331,7 @@ function renderRankingScreen() {
               <span class="ranking-position">#${index + 1}</span>
               <div>
                 <strong>${escapeHtml(entry.winnerName)}</strong>
-                <p class="meta">${escapeHtml(entry.tableName)} · ${entry.playerCount} jogadores</p>
+                <p class="meta">${escapeHtml(entry.tableName)} - ${entry.playerCount} jogadores</p>
               </div>
               <span class="ranking-score">${entry.score} pts</span>
             </li>
@@ -350,7 +350,7 @@ function renderRankingScreen() {
   return `
     ${screenHeader(
       "Ranking local",
-      "Historico simplificado das ultimas partidas encerradas nesta maquina."
+      "Histórico simplificado das últimas partidas encerradas nesta máquina."
     )}
     <section class="panel">
       <ol class="ranking-list">${listHtml}</ol>
@@ -373,16 +373,16 @@ function renderTutorialScreen() {
   return `
     ${screenHeader(
       "Tutorial resumido",
-      "A partida acontece em rodadas. Em cada turno, o jogador escolhe um especialista e um sitio compativel."
+      "A partida acontece em rodadas. Em cada turno, o jogador escolhe um especialista e um sítio compatível."
     )}
     <div class="content-grid">
       <section class="panel">
         <h3>Fluxo do turno</h3>
         <ul class="meta-list">
-          <li>Escolha um especialista da mao do jogador atual.</li>
-          <li>Selecione um sitio aberto compativel com esse papel.</li>
-          <li>Receba artefatos e pontos imediatos da expedicao.</li>
-          <li>Ao fim de duas rodadas, os conselheiros calculam bonus finais.</li>
+          <li>Escolha um especialista da mão do jogador atual.</li>
+          <li>Selecione um sítio aberto compatível com esse papel.</li>
+          <li>Receba artefatos e pontos imediatos da expedição.</li>
+          <li>Ao fim de duas rodadas, os conselheiros calculam bônus finais.</li>
         </ul>
       </section>
       <section class="panel">
@@ -399,17 +399,17 @@ function renderTutorialScreen() {
 
 function renderSettingsScreen() {
   const saveStatus = appState.game
-    ? "Autosave disponivel no navegador."
+    ? "Autosave disponível no navegador."
     : "Nenhum autosave armazenado no momento.";
 
   return `
     ${screenHeader(
-      "Configuracoes",
-      "A demo prioriza simplicidade, confiabilidade e apresentacao rapida."
+      "Configurações",
+      "A demo prioriza simplicidade, confiabilidade e apresentação rápida."
     )}
     <div class="content-grid">
       <section class="panel">
-        <h3>Persistencia</h3>
+        <h3>Persistência</h3>
         <p class="meta">${saveStatus}</p>
       </section>
       <section class="panel">
@@ -429,8 +429,23 @@ function renderSettingsScreen() {
 
 function renderGameScreen() {
   if (!appState.game) {
-    navigate("home");
-    return "";
+    return `
+      ${screenHeader(
+        "Nenhuma mesa ativa",
+        "Crie uma nova partida ou carregue um autosave para acessar o tabuleiro."
+      )}
+      <section class="panel empty-state">
+        <div>
+          <h3>Jogo ainda não iniciado</h3>
+          <p class="meta">Use a opção Nova Partida para abrir uma mesa local hot-seat.</p>
+          <div class="actions">
+            <button class="primary-button" data-action="open-screen" data-screen-target="home">
+              Ir para nova partida
+            </button>
+          </div>
+        </div>
+      </section>
+    `;
   }
 
   syncSelectedSpecialist();
@@ -457,7 +472,7 @@ function renderGameScreen() {
       return `
         <article class="player-card">
           <h3>${escapeHtml(entry.name)}</h3>
-          <p class="meta">Base: ${entry.score} pts · Bonus: ${entry.finalBonus} pts</p>
+          <p class="meta">Base: ${entry.score} pts - Bônus: ${entry.finalBonus} pts</p>
           <p class="meta"><strong>Total: ${entry.finalScore} pts</strong></p>
           <div class="artifact-row">${artifacts}</div>
         </article>
@@ -469,7 +484,7 @@ function renderGameScreen() {
     .map((site) => {
       const specialistNames = site.allowedSpecialists
         .map((key) => SPECIALIST_TYPES.find((specialist) => specialist.key === key)?.name ?? key)
-        .join(" · ");
+        .join(" - ");
       const isClaimed = site.status === "claimed";
       const isPlayable = playableSiteIds.has(site.id);
       const ownerName = isClaimed
@@ -497,7 +512,7 @@ function renderGameScreen() {
               data-site-id="${site.id}"
               ${!isPlayable ? "disabled" : ""}
             >
-              ${isClaimed ? "Expedicao concluida" : "Enviar especialista"}
+              ${isClaimed ? "Expedição concluída" : "Enviar especialista"}
             </button>
           </div>
         </article>
@@ -519,7 +534,7 @@ function renderGameScreen() {
               ${!playable ? "disabled" : ""}
             >
               <strong>${escapeHtml(specialist.name)}</strong>
-              <span>${playable ? "Pode agir" : "Sem sitio compativel"}</span>
+              <span>${playable ? "Pode agir" : "Sem sítio compatível"}</span>
             </button>
           `;
         })
@@ -582,7 +597,7 @@ function renderGameScreen() {
   return `
     ${screenHeader(
       "Mesa em andamento",
-      "Use um especialista da mao do jogador atual para ocupar um sitio aberto e acumular artefatos."
+      "Use um especialista da mão do jogador atual para ocupar um sítio aberto e acumular artefatos."
     )}
     ${resultBanner}
     <div class="content-grid game-layout">
@@ -594,7 +609,7 @@ function renderGameScreen() {
               <p class="meta"><strong>${escapeHtml(currentPlayer.name)}</strong></p>
               <div class="specialist-grid">${handCards}</div>
             `
-            : `<p class="meta">A partida ja terminou. Revise o resultado abaixo.</p>`
+            : `<p class="meta">A partida já terminou. Revise o resultado abaixo.</p>`
         }
         <div class="actions">
           <button class="secondary-button" data-action="open-screen" data-screen-target="ranking">
@@ -605,7 +620,7 @@ function renderGameScreen() {
       </section>
 
       <section class="panel panel-stack">
-        <h3>Sitios ativos</h3>
+        <h3>Sítios ativos</h3>
         <div class="site-grid">${siteCards}</div>
       </section>
     </div>
@@ -620,7 +635,7 @@ function renderGameScreen() {
         <div class="content-grid counselor-grid">${counselorCards}</div>
       </section>
       <section class="panel">
-        <h3>Ultimos eventos</h3>
+        <h3>Últimos eventos</h3>
         <ul class="meta-list log-list">${logItems}</ul>
       </section>
     </div>
@@ -631,14 +646,29 @@ function render() {
   const targetScreen = appState.screen === "game" ? "home" : appState.screen;
   setActiveMenu(targetScreen);
 
-  const html = {
-    home: renderHomeScreen(),
-    continue: renderContinueScreen(),
-    ranking: renderRankingScreen(),
-    tutorial: renderTutorialScreen(),
-    settings: renderSettingsScreen(),
-    game: renderGameScreen(),
-  }[appState.screen];
+  let html;
+
+  switch (appState.screen) {
+    case "continue":
+      html = renderContinueScreen();
+      break;
+    case "ranking":
+      html = renderRankingScreen();
+      break;
+    case "tutorial":
+      html = renderTutorialScreen();
+      break;
+    case "settings":
+      html = renderSettingsScreen();
+      break;
+    case "game":
+      html = renderGameScreen();
+      break;
+    case "home":
+    default:
+      html = renderHomeScreen();
+      break;
+  }
 
   root.innerHTML = html ?? renderHomeScreen();
 }

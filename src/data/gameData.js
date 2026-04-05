@@ -1,28 +1,28 @@
 export const SPECIALIST_TYPES = [
   {
     key: "cartografo",
-    name: "Cartografo",
-    description: "Especialista em mapas antigos e rotas de escavacao.",
+    name: "Cartógrafo",
+    description: "Especialista em mapas antigos e rotas de escavação.",
   },
   {
     key: "geologa",
-    name: "Geologa",
+    name: "Geóloga",
     description: "Analisa camadas de solo e identifica pistas de artefatos.",
   },
   {
     key: "linguista",
     name: "Linguista",
-    description: "Decifra inscricoes e textos de civilizacoes perdidas.",
+    description: "Decifra inscrições e textos de civilizações perdidas.",
   },
   {
     key: "guardiao",
-    name: "Guardiao",
-    description: "Protege a expedicao e assegura a entrada em areas instaveis.",
+    name: "Guardião",
+    description: "Protege a expedição e assegura a entrada em áreas instáveis.",
   },
   {
     key: "mergulhadora",
     name: "Mergulhadora",
-    description: "Explora cavernas alagadas e ruinas submersas.",
+    description: "Explora cavernas alagadas e ruínas submersas.",
   },
 ];
 
@@ -39,7 +39,7 @@ export const ARTIFACT_TYPES = [
   },
   {
     key: "idolo",
-    name: "Idolo",
+    name: "Ídolo",
     color: "#8b613f",
   },
   {
@@ -57,7 +57,7 @@ export const ARTIFACT_TYPES = [
 export const COUNSELORS = [
   {
     id: "inscricoes",
-    name: "Conselho das Inscricoes",
+    name: "Conselho das Inscrições",
     recipe: { tabuleta: 2, manuscrito: 1 },
     points: 7,
     summary: "Cada conjunto de 2 Tabuletas e 1 Manuscrito vale 7 pontos.",
@@ -71,14 +71,14 @@ export const COUNSELORS = [
   },
   {
     id: "relicarios",
-    name: "Conselho dos Reliquarios",
+    name: "Conselho dos Relicários",
     recipe: { idolo: 1, gema: 1, tabuleta: 1 },
     points: 8,
-    summary: "Cada conjunto de Idolo, Gema e Tabuleta vale 8 pontos.",
+    summary: "Cada conjunto de Ídolo, Gema e Tabuleta vale 8 pontos.",
   },
   {
     id: "colecoes",
-    name: "Conselho das Colecoes",
+    name: "Conselho das Coleções",
     recipe: {
       tabuleta: 1,
       moeda: 1,
@@ -94,7 +94,7 @@ export const COUNSELORS = [
 export const SITE_TEMPLATES = [
   {
     id: "andes-terraces",
-    name: "Terracos de Qhapaq",
+    name: "Terraços de Qhapaq",
     region: "Cordilheira",
     allowedSpecialists: ["cartografo", "geologa"],
     artifactType: "tabuleta",
@@ -104,7 +104,7 @@ export const SITE_TEMPLATES = [
   {
     id: "delta-archives",
     name: "Arquivos do Delta",
-    region: "Pantano",
+    region: "Pântano",
     allowedSpecialists: ["linguista", "mergulhadora"],
     artifactType: "manuscrito",
     reward: 2,
@@ -112,7 +112,7 @@ export const SITE_TEMPLATES = [
   },
   {
     id: "sunken-observatory",
-    name: "Observatorio Submerso",
+    name: "Observatório Submerso",
     region: "Costa",
     allowedSpecialists: ["mergulhadora", "cartografo"],
     artifactType: "gema",
@@ -121,7 +121,7 @@ export const SITE_TEMPLATES = [
   },
   {
     id: "amber-fort",
-    name: "Forte de Ambar",
+    name: "Forte de Âmbar",
     region: "Deserto",
     allowedSpecialists: ["guardiao", "geologa"],
     artifactType: "idolo",
@@ -139,7 +139,7 @@ export const SITE_TEMPLATES = [
   },
   {
     id: "ivory-sanctum",
-    name: "Santuario de Marfim",
+    name: "Santuário de Marfim",
     region: "Selva",
     allowedSpecialists: ["guardiao", "cartografo"],
     artifactType: "idolo",
@@ -157,7 +157,7 @@ export const SITE_TEMPLATES = [
   },
   {
     id: "oracle-steps",
-    name: "Escadarias do Oraculo",
+    name: "Escadarias do Oráculo",
     region: "Planalto",
     allowedSpecialists: ["linguista", "cartografo"],
     artifactType: "tabuleta",
@@ -184,7 +184,7 @@ export const SITE_TEMPLATES = [
   },
   {
     id: "saffron-chasm",
-    name: "Abismo de Acafrao",
+    name: "Abismo de Açafrão",
     region: "Deserto",
     allowedSpecialists: ["geologa", "cartografo"],
     artifactType: "moeda",
@@ -194,7 +194,7 @@ export const SITE_TEMPLATES = [
   {
     id: "moon-basin",
     name: "Bacia Lunar",
-    region: "Pantano",
+    region: "Pântano",
     allowedSpecialists: ["guardiao", "linguista"],
     artifactType: "tabuleta",
     reward: 1,
@@ -202,7 +202,7 @@ export const SITE_TEMPLATES = [
   },
   {
     id: "pearl-atrium",
-    name: "Atrio das Perolas",
+    name: "Átrio das Pérolas",
     region: "Costa",
     allowedSpecialists: ["mergulhadora", "guardiao"],
     artifactType: "gema",
@@ -211,7 +211,7 @@ export const SITE_TEMPLATES = [
   },
   {
     id: "basilica-echo",
-    name: "Basilica do Eco",
+    name: "Basílica do Eco",
     region: "Planalto",
     allowedSpecialists: ["linguista", "geologa"],
     artifactType: "manuscrito",
@@ -220,7 +220,7 @@ export const SITE_TEMPLATES = [
   },
   {
     id: "jade-monolith",
-    name: "Monolito de Jade",
+    name: "Monólito de Jade",
     region: "Selva",
     allowedSpecialists: ["cartografo", "mergulhadora"],
     artifactType: "idolo",
