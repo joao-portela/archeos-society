@@ -1,0 +1,50 @@
+name: Bug report
+description: Registre um defeito observado na demo ou no processo do projeto.
+title: "[Bug]: "
+labels:
+  - type:bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Resumo
+      description: Descreva o problema em uma frase.
+      placeholder: Ao concluir a ultima jogada da rodada, o placar nao atualiza.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      description: Liste as acoes necessarias para reproduzir o comportamento.
+      placeholder: |
+        1. Abrir a tela de jogo
+        2. Selecionar o especialista X
+        3. Clicar no sitio Y
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Resultado esperado
+      placeholder: O jogo deveria calcular a pontuacao e passar o turno.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Resultado atual
+      placeholder: O botao fica travado e nao ha atualizacao do turno.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area impactada
+      options:
+        - gameplay
+        - frontend
+        - persistencia
+        - documentacao
+    validations:
+      required: true

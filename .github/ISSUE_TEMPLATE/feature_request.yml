@@ -1,0 +1,43 @@
+name: Feature request
+description: Proponha uma melhoria para o produto ou para o processo do projeto.
+title: "[Feat]: "
+labels:
+  - type:feature
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto
+      description: Qual necessidade esta motivando a feature?
+      placeholder: A apresentacao 2 vai exigir controle de modificacoes mais visivel.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      description: Descreva a funcionalidade ou melhoria desejada.
+      placeholder: Adicionar um painel com historico de jogadas por rodada.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceitacao
+      description: Liste os criterios que definem a issue como pronta.
+      placeholder: |
+        - Historico mostra jogadas da rodada atual
+        - Historico persiste no autosave
+        - Existe cobertura basica de teste
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioridade
+      options:
+        - alta
+        - media
+        - baixa
+    validations:
+      required: true
