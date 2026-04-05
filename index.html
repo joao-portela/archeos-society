@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Archeos Society: Edicao Digital</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero__copy">
+          <p class="eyebrow">PixelStone Studios</p>
+          <h1>Archeos Society: Edicao Digital</h1>
+          <p class="hero__text">
+            Um prototipo academico inspirado em jogos de expedicao, com foco em
+            gestao de projeto e demo jogavel para a primeira apresentacao.
+          </p>
+        </div>
+        <div class="hero__panel">
+          <div class="hero__badge">Demo Sprint 1</div>
+          <p class="hero__hint">Navegue pelo menu e prepare a partida local.</p>
+        </div>
+      </header>
+
+      <main class="app-grid">
+        <nav class="menu-card">
+          <button class="menu-button is-active" data-screen="home">
+            Nova Partida
+          </button>
+          <button class="menu-button" data-screen="continue">Continuar</button>
+          <button class="menu-button" data-screen="ranking">Ranking</button>
+          <button class="menu-button" data-screen="tutorial">Tutorial</button>
+          <button class="menu-button" data-screen="settings">
+            Configuracoes
+          </button>
+        </nav>
+
+        <section class="screen-card">
+          <div id="screen-root"></div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
