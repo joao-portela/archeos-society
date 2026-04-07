@@ -250,6 +250,64 @@ function rotateTurn(players, currentIndex) {
   return (currentIndex + 1) % players.length;
 }
 
+function concludeRoundIfNeeded(state, rng = Math.random) {
+  const roundFinished = state.players.every((player) => player.hand.length === 0);
+
+  if (!roundFinished) {
+    return state;
+  }
+
+  if (state.currentRound >= state.rounds) {
+    return finalizeGame(state);
+  }
+
+  return prepareRound(
+    {
+      ...state,
+      currentRound: state.currentRound + 1,
+    },
+    rng,
+  );
+}
+
+export function resolveBlockedTurn(state, rng = Math.random) {
+  if (state.status !== "active") {
+    return state;
+  }
+
+  const next = clone(state);
+  let rotations = 0;
+
+  while (rotations < next.players.length) {
+    const progressedState = concludeRoundIfNeeded(next, rng);
+    if (progressedState !== next) {
+      return progressedState;
+    }
+
+    const currentPlayer = next.players[next.currentPlayerIndex];
+
+    if (currentPlayer.hand.length === 0) {
+      next.currentPlayerIndex = rotateTurn(next.players, next.currentPlayerIndex);
+      rotations += 1;
+      continue;
+    }
+
+    if (playerHasPlayableMove(currentPlayer, next.activeSites)) {
+      return next;
+    }
+
+    const discardedCount = currentPlayer.hand.length;
+    currentPlayer.hand = [];
+    next.log.push(
+      `${currentPlayer.name} ficou sem sítios válidos e descartou ${discardedCount} especialista(s).`,
+    );
+    next.currentPlayerIndex = rotateTurn(next.players, next.currentPlayerIndex);
+    rotations += 1;
+  }
+
+  return concludeRoundIfNeeded(next, rng);
+}
+
 export function getCurrentPlayer(state) {
   return state.players[state.currentPlayerIndex];
 }
@@ -288,7 +346,7 @@ export function createGame(config = {}, rng = Math.random) {
     log: [`Partida criada para ${playerNames.length} jogadores.`],
   };
 
-  return prepareRound(baseState, rng);
+  return resolveBlockedTurn(prepareRound(baseState, rng), rng);
 }
 
 export function performExpedition(state, action, rng = Math.random) {
@@ -341,19 +399,8 @@ export function performExpedition(state, action, rng = Math.random) {
     `${currentPlayer.name} concluiu ${site.name} usando ${specialist.name} e recebeu ${site.reward} ${getArtifactLabel(site.artifactType, site.reward)}.`,
   );
 
-  const roundFinished = next.players.every((player) => player.hand.length === 0);
-
-  if (roundFinished && next.currentRound >= next.rounds) {
-    return finalizeGame(next);
-  }
-
-  if (roundFinished) {
-    next.currentRound += 1;
-    return prepareRound(next, rng);
-  }
-
   next.currentPlayerIndex = rotateTurn(next.players, next.currentPlayerIndex);
-  return next;
+  return resolveBlockedTurn(next, rng);
 }
 
 export function getScoreboard(state) {
