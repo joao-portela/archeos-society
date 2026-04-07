@@ -5,6 +5,7 @@ import {
   getPlayableSitesForSpecialist,
   getScoreboard,
   performExpedition,
+  resolveBlockedTurn,
 } from "./engine/gameEngine.js";
 
 const STORAGE_KEYS = {
@@ -41,7 +42,8 @@ function saveJson(key, value) {
 }
 
 function loadCurrentGame() {
-  return loadJson(STORAGE_KEYS.currentGame, null);
+  const savedGame = loadJson(STORAGE_KEYS.currentGame, null);
+  return savedGame ? resolveBlockedTurn(savedGame) : null;
 }
 
 function loadRanking() {
@@ -52,6 +54,15 @@ function saveCurrentGame() {
   if (appState.game) {
     saveJson(STORAGE_KEYS.currentGame, appState.game);
   }
+}
+
+function normalizeCurrentGame() {
+  if (!appState.game || appState.game.status !== "active") {
+    return;
+  }
+
+  appState.game = resolveBlockedTurn(appState.game);
+  saveCurrentGame();
 }
 
 function ensurePlayerDraft() {
@@ -448,6 +459,7 @@ function renderGameScreen() {
     `;
   }
 
+  normalizeCurrentGame();
   syncSelectedSpecialist();
 
   const game = appState.game;
