@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { scoreExpedition, scoreSites, scoreSeason } from "../src/engine/scoring.js";
+import { scoreExpedition, scoreSites, scoreSeason } from "../src/simplified/scoring.js";
 
 function makeExpedition(extraCards) {
   const leader = { id: "blue-guide", color: "blue", role: "guide" };
