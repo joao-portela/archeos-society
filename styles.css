@@ -365,11 +365,6 @@ select {
   border: 1px solid rgba(121, 79, 43, 0.14);
 }
 
-.player-card.is-selected {
-  border-color: rgba(208, 140, 53, 0.56);
-  background: rgba(240, 184, 98, 0.12);
-}
-
 .artifact-row {
   display: flex;
   flex-wrap: wrap;
