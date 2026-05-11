@@ -7,6 +7,32 @@ import {
 
 const HAND_SIZE = 4;
 const DEFAULT_ROUNDS = 2;
+export const MAX_HAND_SIZE = 10;
+
+export const SITE_COLORS = [
+  "azul",
+  "verde",
+  "vermelho",
+  "amarelo",
+  "roxo",
+  "laranja",
+];
+export const ROLES = [
+  "guia",
+  "fotografo",
+  "botanico",
+  "linguista",
+  "medico",
+  "patrono",
+  "mercenario",
+];
+const DISPLAY_SIZES = new Map([
+  [2, 4],
+  [3, 5],
+  [4, 6],
+  [5, 7],
+  [6, 8],
+]);
 
 function clone(value) {
   return structuredClone(value);
@@ -84,7 +110,7 @@ function buildSiteDeck(siteTemplates = SITE_TEMPLATES, rng = Math.random) {
   return shuffle(expanded, rng);
 }
 
-function drawFromDeck(deck, count, builder, rng = Math.random) {
+function drawFromStack(deck, count, builder, rng = Math.random) {
   const workingDeck = [...deck];
   const drawn = [];
 
@@ -96,6 +122,136 @@ function drawFromDeck(deck, count, builder, rng = Math.random) {
   }
 
   return { drawn, deck: workingDeck };
+}
+
+function isMonkeyCard(card) {
+  return card?.type === "monkey";
+}
+
+function getDisplaySize(playerCount) {
+  const size = DISPLAY_SIZES.get(playerCount);
+  if (!size) {
+    throw new Error("Quantidade de jogadores invalida para o display inicial.");
+  }
+  return size;
+}
+
+export function createDeck() {
+  const cards = [];
+
+  for (const color of SITE_COLORS) {
+    for (const role of ROLES) {
+      cards.push({
+        id: `${color}-${role}`,
+        color,
+        role,
+      });
+    }
+  }
+
+  const monkeys = [
+    { id: "monkey-1", type: "monkey" },
+    { id: "monkey-2", type: "monkey" },
+    { id: "monkey-3", type: "monkey" },
+  ];
+
+  return [...cards, ...monkeys];
+}
+
+export function shuffleDeck(deck, rng = Math.random) {
+  return shuffle(deck, rng);
+}
+
+export function createInitialDisplay(state) {
+  const next = clone(state);
+  const displaySize = getDisplaySize(next.players.length);
+  const workingDeck = [...next.deck];
+  const display = [];
+  let monkeysRevealed = next.monkeysRevealed ?? 0;
+
+  while (display.length < displaySize) {
+    const card = workingDeck.shift();
+    if (!card) {
+      throw new Error("Baralho vazio.");
+    }
+    if (isMonkeyCard(card)) {
+      monkeysRevealed += 1;
+      continue;
+    }
+    display.push(card);
+  }
+
+  return {
+    ...next,
+    deck: workingDeck,
+    display,
+    monkeysRevealed,
+  };
+}
+
+export function takeFromDisplay(state, playerId, cardId) {
+  if (state.display.length === 0) {
+    throw new Error(
+      "Display vazio: ação indisponível. Compre do baralho ou jogue uma expedição.",
+    );
+  }
+
+  const next = clone(state);
+  const player = next.players.find((entry) => entry.id === playerId);
+
+  if (!player) {
+    throw new Error("Jogador invalido.");
+  }
+
+  if (player.hand.length >= MAX_HAND_SIZE) {
+    throw new Error("Mão cheia: não é possível ganhar cartas.");
+  }
+
+  const cardIndex = next.display.findIndex((card) => card.id === cardId);
+  if (cardIndex === -1) {
+    throw new Error("Carta invalida no display.");
+  }
+
+  const [card] = next.display.splice(cardIndex, 1);
+  player.hand.push(card);
+
+  return next;
+}
+
+export function drawFromDeck(state, playerId) {
+  const next = clone(state);
+  const player = next.players.find((entry) => entry.id === playerId);
+
+  if (!player) {
+    throw new Error("Jogador invalido.");
+  }
+
+  const cardsToDraw = next.display.length === 0 ? 2 : 1;
+  const availableSlots = MAX_HAND_SIZE - player.hand.length;
+  const actualCardsToDraw = Math.min(cardsToDraw, availableSlots);
+
+  if (actualCardsToDraw <= 0) {
+    throw new Error("Mão cheia: não é possível ganhar cartas.");
+  }
+
+  let normalDrawn = 0;
+
+  while (normalDrawn < actualCardsToDraw) {
+    const card = next.deck.shift();
+    if (!card) {
+      throw new Error("Baralho vazio.");
+    }
+
+    if (isMonkeyCard(card)) {
+      next.monkeysRevealed = (next.monkeysRevealed ?? 0) + 1;
+      continue;
+    }
+
+    player.hand.push(card);
+    normalDrawn += 1;
+  }
+
+  return next;
 }
 
 function specialistPlayableOnSite(specialistKey, site) {
@@ -115,7 +271,7 @@ function prepareRound(state, rng = Math.random) {
 
   while (attempts < 20) {
     const refreshedPlayers = state.players.map((player) => {
-      const handDraw = drawFromDeck(
+      const handDraw = drawFromStack(
         specialistDeck,
         state.handSize,
         buildSpecialistDeck,
@@ -130,7 +286,7 @@ function prepareRound(state, rng = Math.random) {
       };
     });
 
-    const siteDraw = drawFromDeck(
+    const siteDraw = drawFromStack(
       siteDeck,
       refreshedPlayers.length * state.handSize,
       () => buildSiteDeck(state.siteTemplates, rng),
@@ -343,10 +499,14 @@ export function createGame(config = {}, rng = Math.random) {
     siteDeck: buildSiteDeck(siteTemplates, rng),
     siteTemplates: clone(siteTemplates),
     activeSites: [],
+    deck: shuffleDeck(createDeck(), rng),
+    display: [],
+    monkeysRevealed: 0,
     log: [`Partida criada para ${playerNames.length} jogadores.`],
   };
 
-  return resolveBlockedTurn(prepareRound(baseState, rng), rng);
+  const withDisplay = createInitialDisplay(baseState);
+  return resolveBlockedTurn(prepareRound(withDisplay, rng), rng);
 }
 
 export function performExpedition(state, action, rng = Math.random) {

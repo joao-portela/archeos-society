@@ -1,11 +1,17 @@
 import { ARTIFACT_TYPES, COUNSELORS, SPECIALIST_TYPES } from "./data/gameData.js";
 import {
+  createDeck,
+  createInitialDisplay,
   createGame,
+  drawFromDeck,
   getCurrentPlayer,
   getPlayableSitesForSpecialist,
   getScoreboard,
+  MAX_HAND_SIZE,
   performExpedition,
   resolveBlockedTurn,
+  shuffleDeck,
+  takeFromDisplay,
 } from "./engine/gameEngine.js";
 
 const STORAGE_KEYS = {
@@ -43,7 +49,7 @@ function saveJson(key, value) {
 
 function loadCurrentGame() {
   const savedGame = loadJson(STORAGE_KEYS.currentGame, null);
-  return savedGame ? resolveBlockedTurn(savedGame) : null;
+  return savedGame ? resolveBlockedTurn(ensureCardState(savedGame)) : null;
 }
 
 function loadRanking() {
@@ -56,12 +62,38 @@ function saveCurrentGame() {
   }
 }
 
+function ensureCardState(game) {
+  if (!game) {
+    return game;
+  }
+
+  if (!Array.isArray(game.deck)) {
+    const baseState = {
+      ...game,
+      deck: shuffleDeck(createDeck()),
+      display: [],
+      monkeysRevealed: game.monkeysRevealed ?? 0,
+    };
+    return createInitialDisplay(baseState);
+  }
+
+  if (!Array.isArray(game.display)) {
+    return createInitialDisplay({
+      ...game,
+      display: [],
+      monkeysRevealed: game.monkeysRevealed ?? 0,
+    });
+  }
+
+  return game;
+}
+
 function normalizeCurrentGame() {
   if (!appState.game || appState.game.status !== "active") {
     return;
   }
 
-  appState.game = resolveBlockedTurn(appState.game);
+  appState.game = resolveBlockedTurn(ensureCardState(appState.game));
   saveCurrentGame();
 }
 
@@ -87,6 +119,17 @@ function escapeHtml(value) {
 function formatArtifactLabel(artifactKey, count) {
   const artifact = ARTIFACT_TYPES.find((item) => item.key === artifactKey);
   return `${artifact?.name ?? artifactKey}: ${count}`;
+}
+
+function titleCase(value) {
+  if (!value) {
+    return "";
+  }
+  return `${value[0].toUpperCase()}${value.slice(1)}`;
+}
+
+function formatDisplayCardLabel(card) {
+  return `${titleCase(card.color)} / ${titleCase(card.role)}`;
 }
 
 function setActiveMenu(targetScreen) {
@@ -193,6 +236,38 @@ function handlePlay(siteId) {
   saveCurrentGame();
   syncSelectedSpecialist();
   render();
+}
+
+function applyGameAction(actionFn) {
+  try {
+    appState.game = actionFn(appState.game);
+    saveCurrentGame();
+    render();
+  } catch (error) {
+    if (appState.game) {
+      appState.game.log.push(`Erro: ${error.message}`);
+      saveCurrentGame();
+      render();
+    }
+  }
+}
+
+function handleDrawFromDeck() {
+  const currentPlayer = getCurrentPlayer(appState.game);
+  if (!currentPlayer) {
+    return;
+  }
+
+  applyGameAction((state) => drawFromDeck(state, currentPlayer.id));
+}
+
+function handleTakeFromDisplay(cardId) {
+  const currentPlayer = getCurrentPlayer(appState.game);
+  if (!currentPlayer) {
+    return;
+  }
+
+  applyGameAction((state) => takeFromDisplay(state, currentPlayer.id, cardId));
 }
 
 function clearCurrentGame() {
@@ -472,6 +547,20 @@ function renderGameScreen() {
       ? getPlayableSitesForSpecialist(game, selectedSpecialist.key).map((site) => site.id)
       : [],
   );
+  const canGainCards =
+    game.status === "active" && currentPlayer && currentPlayer.hand.length < MAX_HAND_SIZE;
+  const displayCards = (game.display ?? []).map((card) => {
+    return `
+      <button
+        class="display-card"
+        data-action="take-display"
+        data-card-id="${card.id}"
+        ${!canGainCards ? "disabled" : ""}
+      >
+        <span>${escapeHtml(formatDisplayCardLabel(card))}</span>
+      </button>
+    `;
+  });
 
   const scoreboard = getScoreboard(game)
     .map((entry) => {
@@ -534,19 +623,35 @@ function renderGameScreen() {
 
   const handCards = currentPlayer
     ? currentPlayer.hand
-        .map((specialist) => {
-          const isSelected = specialist.id === appState.selectedSpecialistId;
-          const playable = getPlayableSitesForSpecialist(game, specialist.key).length > 0;
+        .map((card) => {
+          const isSpecialist = Boolean(card?.key);
+          const isSelected = card.id === appState.selectedSpecialistId;
+          const playable = isSpecialist
+            ? getPlayableSitesForSpecialist(game, card.key).length > 0
+            : false;
+          const label = isSpecialist
+            ? escapeHtml(card.name ?? "Especialista")
+            : escapeHtml(formatDisplayCardLabel(card));
+          const helperText = isSpecialist
+            ? playable
+              ? "Pode agir"
+              : "Sem sítio compatível"
+            : "Carta comum (usada em expedições)";
 
           return `
             <button
               class="specialist-card ${isSelected ? "is-selected" : ""}"
               data-action="select-specialist"
-              data-specialist-id="${specialist.id}"
+              data-specialist-id="${card.id}"
               ${!playable ? "disabled" : ""}
+              title="${
+                isSpecialist
+                  ? ""
+                  : "Cartas comuns só servem para formar expedições."
+              }"
             >
-              <strong>${escapeHtml(specialist.name)}</strong>
-              <span>${playable ? "Pode agir" : "Sem sítio compatível"}</span>
+              <strong>${label}</strong>
+              <span>${helperText}</span>
             </button>
           `;
         })
@@ -620,6 +725,19 @@ function renderGameScreen() {
             ? `
               <p class="meta"><strong>${escapeHtml(currentPlayer.name)}</strong></p>
               <div class="specialist-grid">${handCards}</div>
+              <div class="panel panel-stack">
+                <h4>Vitrine de cartas</h4>
+                <div class="display-grid">${displayCards.join("")}</div>
+                <div class="actions">
+                  <button
+                    class="primary-button"
+                    data-action="draw-deck"
+                    ${!canGainCards ? "disabled" : ""}
+                  >
+                    Comprar do baralho
+                  </button>
+                </div>
+              </div>
             `
             : `<p class="meta">A partida já terminou. Revise o resultado abaixo.</p>`
         }
@@ -720,6 +838,16 @@ root.addEventListener("click", (event) => {
 
   if (action === "play-site" && appState.game?.status === "active") {
     handlePlay(actionTarget.dataset.siteId);
+    return;
+  }
+
+  if (action === "draw-deck" && appState.game?.status === "active") {
+    handleDrawFromDeck();
+    return;
+  }
+
+  if (action === "take-display" && appState.game?.status === "active") {
+    handleTakeFromDisplay(actionTarget.dataset.cardId);
     return;
   }
 
