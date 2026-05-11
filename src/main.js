@@ -7,6 +7,11 @@ import {
   performExpedition,
   resolveBlockedTurn,
 } from "./engine/gameEngine.js";
+import {
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  setupGame,
+} from "./simplified/simplifiedGame.js";
 
 const STORAGE_KEYS = {
   currentGame: "archeos.currentGame",
@@ -15,11 +20,12 @@ const STORAGE_KEYS = {
 
 const root = document.querySelector("#screen-root");
 const menuButtons = [...document.querySelectorAll(".menu-button")];
-const defaultPlayers = ["Ayla", "Bruno", "Caio", "Dani", "Enzo"];
+const defaultPlayers = ["Ayla", "Bruno", "Caio", "Dani", "Enzo", "Fabi"];
 
 const appState = {
   screen: "home",
   tableName: "Mesa da apresentação",
+  gameVersion: "simplified",
   playerCount: 2,
   playerNames: defaultPlayers.slice(0, 2),
   game: loadCurrentGame(),
@@ -41,9 +47,17 @@ function saveJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function isSimplifiedGame(game) {
+  return game?.mode === "simplified" || Boolean(game?.phase);
+}
+
 function loadCurrentGame() {
   const savedGame = loadJson(STORAGE_KEYS.currentGame, null);
-  return savedGame ? resolveBlockedTurn(savedGame) : null;
+  if (!savedGame) {
+    return null;
+  }
+
+  return isSimplifiedGame(savedGame) ? savedGame : resolveBlockedTurn(savedGame);
 }
 
 function loadRanking() {
@@ -57,7 +71,7 @@ function saveCurrentGame() {
 }
 
 function normalizeCurrentGame() {
-  if (!appState.game || appState.game.status !== "active") {
+  if (!appState.game || isSimplifiedGame(appState.game) || appState.game.status !== "active") {
     return;
   }
 
@@ -66,6 +80,9 @@ function normalizeCurrentGame() {
 }
 
 function ensurePlayerDraft() {
+  const maxPlayers = appState.gameVersion === "simplified" ? MAX_PLAYERS : 5;
+  appState.playerCount = Math.min(Math.max(appState.playerCount, MIN_PLAYERS), maxPlayers);
+
   while (appState.playerNames.length < appState.playerCount) {
     appState.playerNames.push(defaultPlayers[appState.playerNames.length]);
   }
@@ -101,7 +118,7 @@ function navigate(screen) {
 }
 
 function registerFinishedGame(game) {
-  if (game.status !== "finished") {
+  if (isSimplifiedGame(game) || game.status !== "finished") {
     return;
   }
 
@@ -131,12 +148,28 @@ function registerFinishedGame(game) {
 function startNewGame() {
   ensurePlayerDraft();
 
-  appState.game = createGame({
-    tableName: appState.tableName.trim() || "Mesa da apresentação",
-    playerNames: appState.playerNames.map((name, index) => {
-      return name.trim() || `Jogador ${index + 1}`;
-    }),
+  const tableName = appState.tableName.trim() || "Mesa da apresentação";
+  const playerNames = appState.playerNames.map((name, index) => {
+    return name.trim() || `Jogador ${index + 1}`;
   });
+
+  if (appState.gameVersion === "simplified") {
+    appState.game = {
+      ...setupGame(playerNames),
+      id: `game-${Date.now()}`,
+      tableName,
+      mode: "simplified",
+      createdAt: new Date().toISOString(),
+    };
+  } else {
+    appState.game = {
+      ...createGame({
+        tableName,
+        playerNames,
+      }),
+      mode: "legacy",
+    };
+  }
 
   appState.selectedSpecialistId = null;
   saveCurrentGame();
@@ -204,6 +237,7 @@ function clearCurrentGame() {
 
 function resetDraft() {
   appState.tableName = "Mesa da apresentação";
+  appState.gameVersion = "simplified";
   appState.playerCount = 2;
   appState.playerNames = defaultPlayers.slice(0, 2);
   render();
@@ -218,6 +252,23 @@ function screenHeader(title, subtitle) {
 
 function renderHomeScreen() {
   ensurePlayerDraft();
+  const maxPlayers = appState.gameVersion === "simplified" ? MAX_PLAYERS : 5;
+  const versionOptions = [
+    {
+      value: "simplified",
+      label: "Archeos simplificado",
+    },
+    {
+      value: "legacy",
+      label: "Demo legada",
+    },
+  ]
+    .map((version) => {
+      return `<option value="${version.value}" ${
+        appState.gameVersion === version.value ? "selected" : ""
+      }>${version.label}</option>`;
+    })
+    .join("");
 
   const playerFields = appState.playerNames
     .map((name, index) => {
@@ -242,16 +293,24 @@ function renderHomeScreen() {
   return `
     ${screenHeader(
       "Configurar nova partida",
-      "Monte uma mesa local com 2 a 5 jogadores. Esta entrega já executa o loop principal da partida em hot-seat."
+      "Escolha a versão da regra e monte uma mesa local em hot-seat."
     )}
     <div class="content-grid">
       <section class="panel">
         <h3>Setup rápido</h3>
         <div class="form-grid">
           <div class="field">
+            <label for="game-version">Versão da partida</label>
+            <select id="game-version" data-field="gameVersion">
+              ${versionOptions}
+            </select>
+          </div>
+          <div class="field">
             <label for="player-count">Quantidade de jogadores</label>
             <select id="player-count" data-field="playerCount">
-              ${[2, 3, 4, 5]
+              ${Array.from({ length: maxPlayers - MIN_PLAYERS + 1 }, (_, index) => {
+                return index + MIN_PLAYERS;
+              })
                 .map((count) => {
                   return `<option value="${count}" ${
                     appState.playerCount === count ? "selected" : ""
@@ -274,7 +333,7 @@ function renderHomeScreen() {
           ${playerFields}
         </div>
         <div class="actions">
-          <button class="primary-button" data-action="start-game">Iniciar demo</button>
+          <button class="primary-button" data-action="start-game">Iniciar partida</button>
           <button class="secondary-button" data-action="open-screen" data-screen-target="tutorial">
             Ver tutorial
           </button>
@@ -282,10 +341,10 @@ function renderHomeScreen() {
         </div>
       </section>
       <section class="panel">
-        <h3>Escopo desta demo</h3>
+        <h3>Versões disponíveis</h3>
         <p class="meta">
-          Menu principal, setup, partida local em turnos, coleta de artefatos,
-          pontuação por conselheiros, ranking local e autosave por navegador.
+          Archeos simplificado começa pela estrutura oficial da etapa 1. A demo legada
+          preserva o fluxo jogável antigo com sítios, especialistas e pontuação final.
         </p>
         ${continueHint}
       </section>
@@ -307,8 +366,11 @@ function renderContinueScreen() {
     `;
   }
 
+  const simplified = isSimplifiedGame(appState.game);
   const winnerLabel =
-    appState.game.status === "finished"
+    simplified
+      ? `<p class="meta">Status: ${appState.game.phase}. Temporada ${appState.game.currentSeason}/${appState.game.totalSeasons}.</p>`
+      : appState.game.status === "finished"
       ? `<p class="meta">Status: encerrada. Pontuação final já calculada.</p>`
       : `<p class="meta">Status: em andamento na rodada ${appState.game.currentRound}.</p>`;
 
@@ -325,7 +387,7 @@ function renderContinueScreen() {
         .join(", ")}</p>
       <div class="actions">
         <button class="primary-button" data-action="load-game">
-          ${appState.game.status === "finished" ? "Rever resultado" : "Carregar partida"}
+          ${!simplified && appState.game.status === "finished" ? "Rever resultado" : "Carregar partida"}
         </button>
         <button class="secondary-button" data-action="clear-save">Limpar autosave</button>
       </div>
@@ -460,6 +522,11 @@ function renderGameScreen() {
   }
 
   normalizeCurrentGame();
+
+  if (isSimplifiedGame(appState.game)) {
+    return renderSimplifiedGameScreen();
+  }
+
   syncSelectedSpecialist();
 
   const game = appState.game;
@@ -654,6 +721,26 @@ function renderGameScreen() {
   `;
 }
 
+function renderSimplifiedGameScreen() {
+  const game = appState.game;
+
+  return `
+    ${screenHeader(
+      "Archeos simplificado",
+      "WIP: fluxo novo em construção."
+    )}
+    <section class="panel empty-state">
+      <div>
+        <h3>WIP</h3>
+        <p class="meta">A partida "${escapeHtml(game.tableName)}" foi criada no fluxo simplificado.</p>
+        <div class="actions">
+          <button class="secondary-button" data-action="clear-save">Encerrar mesa atual</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 function render() {
   const targetScreen = appState.screen === "game" ? "home" : appState.screen;
   setActiveMenu(targetScreen);
@@ -753,6 +840,13 @@ root.addEventListener("input", (event) => {
     return;
   }
 
+  if (field === "gameVersion") {
+    appState.gameVersion = fieldTarget.value;
+    ensurePlayerDraft();
+    render();
+    return;
+  }
+
   if (field === "playerName") {
     const index = Number(fieldTarget.dataset.playerIndex);
     appState.playerNames[index] = fieldTarget.value;
@@ -763,6 +857,13 @@ root.addEventListener("input", (event) => {
 root.addEventListener("change", (event) => {
   const fieldTarget = event.target.closest("[data-field]");
   if (!fieldTarget) {
+    return;
+  }
+
+  if (fieldTarget.dataset.field === "gameVersion") {
+    appState.gameVersion = fieldTarget.value;
+    ensurePlayerDraft();
+    render();
     return;
   }
 
