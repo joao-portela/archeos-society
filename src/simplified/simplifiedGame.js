@@ -7,7 +7,7 @@ export const TOTAL_SEASONS = 3;
 export const MONKEYS_TO_END_SEASON = 3;
 export const MAX_SITE_POSITION = 5;
 export const NORMAL_CARDS_PER_DECK = 42;
-export const MONKEY_CARDS_PER_DECK = 3;
+export const MONKEY_CARDS_PER_DECK = 10;
 
 export const SITE_COLORS = ["blue", "green", "red", "yellow", "purple", "orange"];
 export const ROLES = [
@@ -155,6 +155,10 @@ export function setupGame(playerNames, rng = Math.random) {
     totalSeasons: TOTAL_SEASONS,
     phase: "playing",
   };
+}
+
+export function getCurrentPlayer(game) {
+  return game.players[game.currentPlayerIndex] ?? null;
 }
 
 // === ETAPA 3: Expedições e avanço nas trilhas ===

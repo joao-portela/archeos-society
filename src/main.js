@@ -13,15 +13,50 @@ import {
   shuffleDeck,
   takeFromDisplay,
 } from "./engine/gameEngine.js";
+import {
+  MAX_HAND_SIZE as SIMPLIFIED_MAX_HAND_SIZE,
+  MAX_SITE_POSITION,
+  MONKEYS_TO_END_SEASON,
+  SITE_COLORS,
+  TOTAL_SEASONS,
+  drawFromDeck as simplifiedDrawFromDeck,
+  getCurrentPlayer as getSimplifiedCurrentPlayer,
+  playExpedition,
+  setupGame,
+  startSeason,
+  takeFromDisplay as simplifiedTakeFromDisplay,
+  validateExpedition,
+} from "./simplified/simplifiedGame.js";
 
 const STORAGE_KEYS = {
   currentGame: "archeos.currentGame",
+  simplifiedCurrentGame: "archeos.simplifiedCurrentGame",
   ranking: "archeos.ranking",
+};
+
+const COLOR_LABELS = {
+  blue: "Azul",
+  green: "Verde",
+  red: "Vermelho",
+  yellow: "Amarelo",
+  purple: "Roxo",
+  orange: "Laranja",
+};
+
+const ROLE_LABELS = {
+  guide: "Guia",
+  photographer: "Fotógrafo",
+  botanist: "Botânico",
+  linguist: "Linguista",
+  physician: "Médico",
+  patron: "Patrono",
+  mercenary: "Mercenário",
 };
 
 const root = document.querySelector("#screen-root");
 const menuButtons = [...document.querySelectorAll(".menu-button")];
 const defaultPlayers = ["Ayla", "Bruno", "Caio", "Dani", "Enzo"];
+const defaultSimplifiedPlayers = ["Ayla", "Bruno", "Caio", "Dani", "Enzo", "Fabi"];
 
 const appState = {
   screen: "home",
@@ -31,6 +66,13 @@ const appState = {
   game: loadCurrentGame(),
   ranking: loadRanking(),
   selectedSpecialistId: null,
+  simplifiedTableName: "Mesa simplificada",
+  simplifiedPlayerCount: 2,
+  simplifiedPlayerNames: defaultSimplifiedPlayers.slice(0, 2),
+  simplifiedGame: loadSimplifiedCurrentGame(),
+  selectedLeaderId: null,
+  selectedSupportIds: [],
+  selectedTrait: "color",
 };
 
 function loadJson(key, fallback) {
@@ -52,6 +94,23 @@ function loadCurrentGame() {
   return savedGame ? resolveBlockedTurn(ensureCardState(savedGame)) : null;
 }
 
+function isSimplifiedGame(game) {
+  return Boolean(
+    game &&
+      Array.isArray(game.players) &&
+      Array.isArray(game.deck) &&
+      Array.isArray(game.display) &&
+      typeof game.currentSeason === "number" &&
+      typeof game.currentPlayerIndex === "number" &&
+      typeof game.phase === "string",
+  );
+}
+
+function loadSimplifiedCurrentGame() {
+  const savedGame = loadJson(STORAGE_KEYS.simplifiedCurrentGame, null);
+  return isSimplifiedGame(savedGame) ? savedGame : null;
+}
+
 function loadRanking() {
   return loadJson(STORAGE_KEYS.ranking, []);
 }
@@ -59,6 +118,12 @@ function loadRanking() {
 function saveCurrentGame() {
   if (appState.game) {
     saveJson(STORAGE_KEYS.currentGame, appState.game);
+  }
+}
+
+function saveSimplifiedCurrentGame() {
+  if (appState.simplifiedGame) {
+    saveJson(STORAGE_KEYS.simplifiedCurrentGame, appState.simplifiedGame);
   }
 }
 
@@ -104,6 +169,18 @@ function ensurePlayerDraft() {
   appState.playerNames = appState.playerNames.slice(0, appState.playerCount);
 }
 
+function ensureSimplifiedPlayerDraft() {
+  while (appState.simplifiedPlayerNames.length < appState.simplifiedPlayerCount) {
+    appState.simplifiedPlayerNames.push(
+      defaultSimplifiedPlayers[appState.simplifiedPlayerNames.length],
+    );
+  }
+  appState.simplifiedPlayerNames = appState.simplifiedPlayerNames.slice(
+    0,
+    appState.simplifiedPlayerCount,
+  );
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => {
     return {
@@ -130,6 +207,51 @@ function titleCase(value) {
 
 function formatDisplayCardLabel(card) {
   return `${titleCase(card.color)} / ${titleCase(card.role)}`;
+}
+
+function formatSimplifiedCardLabel(card) {
+  return `${COLOR_LABELS[card.color] ?? card.color} / ${ROLE_LABELS[card.role] ?? card.role}`;
+}
+
+function getCardToneClass(card) {
+  return card?.color ? `card-tone card-tone--${card.color}` : "";
+}
+
+function getSimplifiedExpeditionState(game, leaderId, supportIds, selectedTrait) {
+  if (!game || game.phase !== "playing") {
+    return { canPlay: false, reason: "A temporada não está em andamento." };
+  }
+
+  const currentPlayer = getSimplifiedCurrentPlayer(game);
+  if (!currentPlayer) {
+    return { canPlay: false, reason: "Não há jogador ativo." };
+  }
+
+  if (!leaderId) {
+    return { canPlay: false, reason: "Selecione uma carta líder para iniciar a expedição." };
+  }
+
+  const leader = currentPlayer.hand.find((card) => card.id === leaderId);
+  if (!leader) {
+    return { canPlay: false, reason: "A carta líder selecionada não está mais na mão." };
+  }
+
+  const selectedCards = supportIds.map((cardId) => currentPlayer.hand.find((card) => card.id === cardId));
+  if (selectedCards.some((card) => !card)) {
+    return { canPlay: false, reason: "Há cartas de apoio inválidas na seleção." };
+  }
+
+  if (!validateExpedition(leader, selectedCards, selectedTrait)) {
+    return {
+      canPlay: false,
+      reason:
+        selectedTrait === "color"
+          ? "Todas as cartas de apoio precisam ter a mesma cor do líder."
+          : "Todas as cartas de apoio precisam ter o mesmo personagem do líder.",
+    };
+  }
+
+  return { canPlay: true, reason: "" };
 }
 
 function setActiveMenu(targetScreen) {
@@ -171,6 +293,33 @@ function registerFinishedGame(game) {
   saveJson(STORAGE_KEYS.ranking, appState.ranking);
 }
 
+function screenHeader(title, subtitle) {
+  return `
+    <h2 class="screen-title">${title}</h2>
+    <p class="screen-subtitle">${subtitle}</p>
+  `;
+}
+
+function renderModeSelect(currentScreen) {
+  const selectedMode = currentScreen === "simplified-home" ? "simplified" : "default";
+
+  return `
+    <section class="panel">
+      <div class="field">
+        <label for="mode-select">Modo de jogo</label>
+        <select id="mode-select" data-field="modeSelect">
+          <option value="default" ${selectedMode === "default" ? "selected" : ""}>
+            Demo principal
+          </option>
+          <option value="simplified" ${selectedMode === "simplified" ? "selected" : ""}>
+            Simplificado
+          </option>
+        </select>
+      </div>
+    </section>
+  `;
+}
+
 function startNewGame() {
   ensurePlayerDraft();
 
@@ -184,6 +333,25 @@ function startNewGame() {
   appState.selectedSpecialistId = null;
   saveCurrentGame();
   navigate("game");
+}
+
+function startNewSimplifiedGame() {
+  ensureSimplifiedPlayerDraft();
+
+  const baseGame = setupGame(
+    appState.simplifiedPlayerNames.map((name, index) => name.trim() || `Jogador ${index + 1}`),
+  );
+
+  appState.simplifiedGame = startSeason({
+    ...baseGame,
+    id: `simplified-${Date.now()}`,
+    tableName: appState.simplifiedTableName.trim() || "Mesa simplificada",
+    createdAt: new Date().toISOString(),
+  });
+
+  clearSimplifiedSelection();
+  saveSimplifiedCurrentGame();
+  navigate("simplified-game");
 }
 
 function syncSelectedSpecialist() {
@@ -215,6 +383,35 @@ function syncSelectedSpecialist() {
   });
 
   appState.selectedSpecialistId = nextChoice?.id ?? null;
+}
+
+function clearSimplifiedSelection() {
+  appState.selectedLeaderId = null;
+  appState.selectedSupportIds = [];
+  appState.selectedTrait = "color";
+}
+
+function syncSimplifiedSelection() {
+  const currentPlayer = appState.simplifiedGame
+    ? getSimplifiedCurrentPlayer(appState.simplifiedGame)
+    : null;
+
+  if (!currentPlayer) {
+    clearSimplifiedSelection();
+    return;
+  }
+
+  const handIds = new Set(currentPlayer.hand.map((card) => card.id));
+
+  if (!handIds.has(appState.selectedLeaderId)) {
+    appState.selectedLeaderId = null;
+    appState.selectedSupportIds = [];
+  }
+
+  appState.selectedSupportIds = appState.selectedSupportIds.filter((cardId) => handIds.has(cardId));
+  appState.selectedSupportIds = appState.selectedSupportIds.filter(
+    (cardId) => cardId !== appState.selectedLeaderId,
+  );
 }
 
 function handlePlay(siteId) {
@@ -252,6 +449,17 @@ function applyGameAction(actionFn) {
   }
 }
 
+function applySimplifiedGameAction(actionFn) {
+  try {
+    appState.simplifiedGame = actionFn(appState.simplifiedGame);
+    syncSimplifiedSelection();
+    saveSimplifiedCurrentGame();
+    render();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
 function handleDrawFromDeck() {
   const currentPlayer = getCurrentPlayer(appState.game);
   if (!currentPlayer) {
@@ -270,10 +478,79 @@ function handleTakeFromDisplay(cardId) {
   applyGameAction((state) => takeFromDisplay(state, currentPlayer.id, cardId));
 }
 
+function handleSimplifiedDrawFromDeck() {
+  const currentPlayer = getSimplifiedCurrentPlayer(appState.simplifiedGame);
+  if (!currentPlayer) {
+    return;
+  }
+
+  applySimplifiedGameAction((state) => simplifiedDrawFromDeck(state, currentPlayer.id));
+}
+
+function handleSimplifiedTakeFromDisplay(cardId) {
+  const currentPlayer = getSimplifiedCurrentPlayer(appState.simplifiedGame);
+  if (!currentPlayer) {
+    return;
+  }
+
+  applySimplifiedGameAction((state) => simplifiedTakeFromDisplay(state, currentPlayer.id, cardId));
+}
+
+function handleToggleSimplifiedHandCard(cardId) {
+  const currentPlayer = getSimplifiedCurrentPlayer(appState.simplifiedGame);
+  if (!currentPlayer) {
+    return;
+  }
+
+  if (appState.selectedLeaderId === cardId) {
+    clearSimplifiedSelection();
+    render();
+    return;
+  }
+
+  if (!appState.selectedLeaderId) {
+    appState.selectedLeaderId = cardId;
+    render();
+    return;
+  }
+
+  if (appState.selectedSupportIds.includes(cardId)) {
+    appState.selectedSupportIds = appState.selectedSupportIds.filter((id) => id !== cardId);
+  } else {
+    appState.selectedSupportIds = [...appState.selectedSupportIds, cardId];
+  }
+
+  render();
+}
+
+function handleSimplifiedPlayExpedition() {
+  const currentPlayer = getSimplifiedCurrentPlayer(appState.simplifiedGame);
+  if (!currentPlayer || !appState.selectedLeaderId) {
+    return;
+  }
+
+  applySimplifiedGameAction((state) =>
+    playExpedition(
+      state,
+      currentPlayer.id,
+      appState.selectedLeaderId,
+      appState.selectedTrait,
+      appState.selectedSupportIds,
+    ),
+  );
+}
+
 function clearCurrentGame() {
   appState.game = null;
   appState.selectedSpecialistId = null;
   localStorage.removeItem(STORAGE_KEYS.currentGame);
+  render();
+}
+
+function clearSimplifiedCurrentGame() {
+  appState.simplifiedGame = null;
+  clearSimplifiedSelection();
+  localStorage.removeItem(STORAGE_KEYS.simplifiedCurrentGame);
   render();
 }
 
@@ -284,11 +561,12 @@ function resetDraft() {
   render();
 }
 
-function screenHeader(title, subtitle) {
-  return `
-    <h2 class="screen-title">${title}</h2>
-    <p class="screen-subtitle">${subtitle}</p>
-  `;
+function resetSimplifiedDraft() {
+  appState.simplifiedTableName = "Mesa simplificada";
+  appState.simplifiedPlayerCount = 2;
+  appState.simplifiedPlayerNames = defaultSimplifiedPlayers.slice(0, 2);
+  clearSimplifiedSelection();
+  render();
 }
 
 function renderHomeScreen() {
@@ -320,6 +598,7 @@ function renderHomeScreen() {
       "Monte uma mesa local com 2 a 5 jogadores. Esta entrega já executa o loop principal da partida em hot-seat."
     )}
     <div class="content-grid">
+      ${renderModeSelect("home")}
       <section class="panel">
         <h3>Setup rápido</h3>
         <div class="form-grid">
@@ -362,6 +641,100 @@ function renderHomeScreen() {
           Menu principal, setup, partida local em turnos, coleta de artefatos,
           pontuação por conselheiros, ranking local e autosave por navegador.
         </p>
+        ${continueHint}
+      </section>
+    </div>
+  `;
+}
+
+function renderSimplifiedHomeScreen() {
+  ensureSimplifiedPlayerDraft();
+
+  const playerFields = appState.simplifiedPlayerNames
+    .map((name, index) => {
+      return `
+        <div class="field">
+          <label for="simplified-player-${index}">Jogador ${index + 1}</label>
+          <input
+            id="simplified-player-${index}"
+            value="${escapeHtml(name)}"
+            data-field="simplifiedPlayerName"
+            data-player-index="${index}"
+          />
+        </div>
+      `;
+    })
+    .join("");
+
+  const continueHint = appState.simplifiedGame
+    ? `<p class="meta">Existe uma partida do modo simplificado salva neste navegador.</p>`
+    : `<p class="meta">Ainda não há partida salva do modo simplificado.</p>`;
+
+  return `
+    ${screenHeader(
+      "Modo simplificado",
+      "Fluxo separado do demo principal, baseado nas regras simplificadas de cartas, expedições, trilhas e temporadas."
+    )}
+    <div class="content-grid">
+      ${renderModeSelect("simplified-home")}
+      <section class="panel">
+        <h3>Setup do simplificado</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label for="simplified-player-count">Quantidade de jogadores</label>
+            <select id="simplified-player-count" data-field="simplifiedPlayerCount">
+              ${[2, 3, 4, 5, 6]
+                .map((count) => {
+                  return `<option value="${count}" ${
+                    appState.simplifiedPlayerCount === count ? "selected" : ""
+                  }>${count} jogadores</option>`;
+                })
+                .join("")}
+            </select>
+          </div>
+          <div class="field">
+            <label for="simplified-table-name">Nome da mesa</label>
+            <input
+              id="simplified-table-name"
+              value="${escapeHtml(appState.simplifiedTableName)}"
+              placeholder="Mesa simplificada"
+              data-field="simplifiedTableName"
+            />
+          </div>
+        </div>
+        <div class="form-grid setup-player-grid">
+          ${playerFields}
+        </div>
+        <div class="actions">
+          <button class="primary-button" data-action="start-simplified-game">
+            Iniciar modo simplificado
+          </button>
+          ${
+            appState.simplifiedGame
+              ? `
+                <button
+                  class="secondary-button"
+                  data-action="open-screen"
+                  data-screen-target="simplified-game"
+                >
+                  Continuar simplificado
+                </button>
+              `
+              : ""
+          }
+          <button class="secondary-button" data-action="reset-simplified-draft">
+            Resetar setup
+          </button>
+        </div>
+      </section>
+      <section class="panel">
+        <h3>Regras aplicadas</h3>
+        <ul class="meta-list">
+          <li>Baralho com 42 cartas normais e 10 cartas de macaco.</li>
+          <li>A temporada encerra no 3º macaco revelado.</li>
+          <li>Display inicial por número de jogadores e sem reposição automática.</li>
+          <li>Trilhas com limite visual de 5 posições e aviso ao atingir o teto.</li>
+        </ul>
         ${continueHint}
       </section>
     </div>
@@ -506,9 +879,35 @@ function renderSettingsScreen() {
         <h3>Limpeza</h3>
         <div class="actions">
           <button class="secondary-button" data-action="clear-save">Limpar autosave</button>
+          <button class="secondary-button" data-action="clear-simplified-save">
+            Limpar save simplificado
+          </button>
           <button class="secondary-button" data-action="clear-ranking">Limpar ranking</button>
         </div>
       </section>
+    </div>
+  `;
+}
+
+function renderTrail(player, color) {
+  const position = player.sitePositions[color] ?? 0;
+  const cells = Array.from({ length: MAX_SITE_POSITION }, (_, index) => {
+    const slot = index + 1;
+    return `
+      <span class="trail-cell ${slot <= position ? "is-filled" : ""}" aria-hidden="true">
+        ${slot}
+      </span>
+    `;
+  }).join("");
+
+  return `
+    <div class="trail-row">
+      <div class="trail-row__label">
+        <span class="trail-color trail-color--${color}"></span>
+        <strong>${COLOR_LABELS[color]}</strong>
+      </div>
+      <div class="trail-track">${cells}</div>
+      <span class="trail-value">${position}/${MAX_SITE_POSITION}</span>
     </div>
   `;
 }
@@ -552,7 +951,7 @@ function renderGameScreen() {
   const displayCards = (game.display ?? []).map((card) => {
     return `
       <button
-        class="display-card"
+        class="display-card ${getCardToneClass(card)}"
         data-action="take-display"
         data-card-id="${card.id}"
         ${!canGainCards ? "disabled" : ""}
@@ -640,7 +1039,7 @@ function renderGameScreen() {
 
           return `
             <button
-              class="specialist-card ${isSelected ? "is-selected" : ""}"
+              class="specialist-card ${isSelected ? "is-selected" : ""} ${getCardToneClass(card)}"
               data-action="select-specialist"
               data-specialist-id="${card.id}"
               ${!playable ? "disabled" : ""}
@@ -772,8 +1171,258 @@ function renderGameScreen() {
   `;
 }
 
+function renderSimplifiedGameScreen() {
+  if (!appState.simplifiedGame) {
+    return `
+      ${screenHeader(
+        "Nenhuma mesa simplificada ativa",
+        "Configure uma nova partida simplificada para acessar esse tabuleiro."
+      )}
+      <section class="panel empty-state">
+        <div>
+          <h3>Modo simplificado ainda não iniciado</h3>
+          <p class="meta">Use a opção Modo Simplificado no menu para abrir uma mesa local.</p>
+          <div class="actions">
+            <button
+              class="primary-button"
+              data-action="open-screen"
+              data-screen-target="simplified-home"
+            >
+              Ir para o modo simplificado
+            </button>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  syncSimplifiedSelection();
+
+  const game = appState.simplifiedGame;
+  const currentPlayer = game.phase === "playing" ? getSimplifiedCurrentPlayer(game) : null;
+  const canGainCards =
+    game.phase === "playing" &&
+    currentPlayer &&
+    currentPlayer.hand.length < SIMPLIFIED_MAX_HAND_SIZE;
+
+  const displayCards = game.display.map((card) => {
+    return `
+      <button
+        class="display-card"
+        data-action="simplified-take-display"
+        data-card-id="${card.id}"
+        ${!canGainCards ? "disabled" : ""}
+      >
+        <strong>${escapeHtml(COLOR_LABELS[card.color] ?? card.color)}</strong>
+        <span>${escapeHtml(ROLE_LABELS[card.role] ?? card.role)}</span>
+      </button>
+    `;
+  });
+
+  const handCards = currentPlayer
+    ? currentPlayer.hand
+        .map((card) => {
+          const isLeader = appState.selectedLeaderId === card.id;
+          const isSupport = appState.selectedSupportIds.includes(card.id);
+
+          return `
+            <button
+              class="specialist-card ${getCardToneClass(card)}"
+              data-action="simplified-toggle-hand-card"
+              data-card-id="${card.id}"
+            >
+              <strong>${escapeHtml(formatSimplifiedCardLabel(card))}</strong>
+              <span>${isLeader ? "Líder da expedição" : isSupport ? "Carta de apoio" : "Na mão"}</span>
+            </button>
+          `;
+        })
+        .join("")
+    : "";
+
+  const selectedLeader = currentPlayer?.hand.find((card) => card.id === appState.selectedLeaderId);
+  const expeditionState = getSimplifiedExpeditionState(
+    game,
+    appState.selectedLeaderId,
+    appState.selectedSupportIds,
+    appState.selectedTrait,
+  );
+  const selectionSummary = selectedLeader
+    ? `Líder: ${formatSimplifiedCardLabel(selectedLeader)}. Apoios: ${appState.selectedSupportIds.length}.`
+    : "Selecione primeiro a carta líder da expedição.";
+
+  const maxedTracks = game.players.flatMap((player) =>
+    SITE_COLORS.filter((color) => (player.sitePositions[color] ?? 0) >= MAX_SITE_POSITION).map(
+      (color) => `${player.name} - ${COLOR_LABELS[color]}`,
+    ),
+  );
+
+  const playerCards = game.players
+    .map((player) => {
+      const expeditions = player.expeditions.length
+        ? player.expeditions
+            .map((expedition) => {
+              const size = 1 + expedition.cards.length;
+              const traitLabel = expedition.selectedTrait === "color" ? "Cor" : "Personagem";
+              return `<li>${escapeHtml(formatSimplifiedCardLabel(expedition.leader))} - ${size} carta(s) - ${traitLabel}</li>`;
+            })
+            .join("")
+        : `<li>Nenhuma expedição nesta temporada.</li>`;
+
+      return `
+        <article class="player-card">
+          <h3>${escapeHtml(player.name)}</h3>
+          <p class="meta">Pontuação total: <strong>${player.score}</strong></p>
+          <p class="meta">Mão: ${player.hand.length} carta(s)</p>
+          <div class="trail-stack">${SITE_COLORS.map((color) => renderTrail(player, color)).join("")}</div>
+          <div class="limit-tags">
+            ${SITE_COLORS.filter((color) => (player.sitePositions[color] ?? 0) >= MAX_SITE_POSITION)
+              .map((color) => `<span class="limit-tag">Limite em ${escapeHtml(COLOR_LABELS[color])}</span>`)
+              .join("")}
+          </div>
+          <ul class="meta-list expedition-list">${expeditions}</ul>
+        </article>
+      `;
+    })
+    .join("");
+
+  const resultBanner =
+    game.phase === "gameEnd"
+      ? `
+        <section class="result-banner">
+          <h3>Partida encerrada</h3>
+          <p>
+            ${
+              game.isTie
+                ? "Empate entre os jogadores com maior pontuação."
+                : `Vencedor: <strong>${escapeHtml(
+                    game.players.find((player) => player.id === game.winnerId)?.name ?? "N/D",
+                  )}</strong>`
+            }
+          </p>
+        </section>
+      `
+      : `
+        <div class="status-strip">
+          <span class="status-pill">Temporada ${game.currentSeason}/${TOTAL_SEASONS}</span>
+          <span class="status-pill">Vez de ${escapeHtml(currentPlayer.name)}</span>
+          <span class="status-pill">Macacos: ${game.revealedMonkeys}/${MONKEYS_TO_END_SEASON}</span>
+          <span class="status-pill">Baralho: ${game.deck.length} cartas</span>
+        </div>
+      `;
+
+  return `
+    ${screenHeader(
+      "Mesa simplificada em andamento",
+      "Fluxo separado do modo principal, com display público, expedições por cartas e trilhas arqueológicas."
+    )}
+    ${resultBanner}
+    ${
+      maxedTracks.length
+        ? `
+          <section class="limit-warning">
+            <h3>Limite de trilha alcançado</h3>
+            <p class="meta">${escapeHtml(maxedTracks.join(" | "))}</p>
+          </section>
+        `
+        : ""
+    }
+    <div class="content-grid game-layout">
+      <section class="panel panel-stack">
+        <h3>Jogador atual</h3>
+        ${
+          currentPlayer
+            ? `
+              <p class="meta"><strong>${escapeHtml(currentPlayer.name)}</strong></p>
+              <p class="meta">Mão atual: ${currentPlayer.hand.length}/${SIMPLIFIED_MAX_HAND_SIZE}</p>
+              ${
+                currentPlayer.hand.length >= SIMPLIFIED_MAX_HAND_SIZE
+                  ? `<p class="meta warning-text">Limite de mão atingido. Jogue uma expedição para liberar espaço.</p>`
+                  : ""
+              }
+              <div class="specialist-grid">${handCards}</div>
+              <div class="trait-toggle" role="group" aria-label="Critério da expedição">
+                <button
+                  class="secondary-button ${appState.selectedTrait === "color" ? "is-active-filter" : ""}"
+                  data-action="simplified-set-trait"
+                  data-trait="color"
+                >
+                  Agrupar por cor
+                </button>
+                <button
+                  class="secondary-button ${appState.selectedTrait === "role" ? "is-active-filter" : ""}"
+                  data-action="simplified-set-trait"
+                  data-trait="role"
+                >
+                  Agrupar por personagem
+                </button>
+              </div>
+              <p class="meta">${escapeHtml(selectionSummary)}</p>
+              <div class="actions">
+                <span
+                  class="tooltip-wrap"
+                  title="${escapeHtml(
+                    expeditionState.canPlay ? "Jogar expedição" : expeditionState.reason,
+                  )}"
+                >
+                  <button
+                    class="primary-button"
+                    data-action="simplified-play-expedition"
+                    ${!expeditionState.canPlay ? "disabled" : ""}
+                  >
+                    Jogar expedição
+                  </button>
+                </span>
+                <button class="secondary-button" data-action="simplified-clear-selection">
+                  Limpar seleção
+                </button>
+              </div>
+              <div class="panel panel-stack">
+                <h4>Display público</h4>
+                <p class="meta">Cartas abertas: ${game.display.length}</p>
+                <div class="display-grid">${displayCards.join("") || '<p class="meta">Display vazio.</p>'}</div>
+                <div class="actions">
+                  <button
+                    class="primary-button"
+                    data-action="simplified-draw-deck"
+                    ${!canGainCards ? "disabled" : ""}
+                  >
+                    Comprar do baralho
+                  </button>
+                </div>
+              </div>
+            `
+            : `<p class="meta">A partida já terminou. Revise o resultado abaixo.</p>`
+        }
+        <div class="actions">
+          <button
+            class="secondary-button"
+            data-action="open-screen"
+            data-screen-target="simplified-home"
+          >
+            Voltar ao setup simplificado
+          </button>
+          <button class="secondary-button" data-action="clear-simplified-save">
+            Encerrar mesa simplificada
+          </button>
+        </div>
+      </section>
+
+      <section class="panel panel-stack">
+        <h3>Trilhas e expedições</h3>
+        <div class="scoreboard-grid">${playerCards}</div>
+      </section>
+    </div>
+  `;
+}
+
 function render() {
-  const targetScreen = appState.screen === "game" ? "home" : appState.screen;
+  let targetScreen = appState.screen;
+  if (appState.screen === "game") {
+    targetScreen = "home";
+  }
+  if (appState.screen === "simplified-game") {
+    targetScreen = "simplified-home";
+  }
   setActiveMenu(targetScreen);
 
   let html;
@@ -793,6 +1442,12 @@ function render() {
       break;
     case "game":
       html = renderGameScreen();
+      break;
+    case "simplified-home":
+      html = renderSimplifiedHomeScreen();
+      break;
+    case "simplified-game":
+      html = renderSimplifiedGameScreen();
       break;
     case "home":
     default:
@@ -817,6 +1472,11 @@ root.addEventListener("click", (event) => {
 
   if (action === "start-game") {
     startNewGame();
+    return;
+  }
+
+  if (action === "start-simplified-game") {
+    startNewSimplifiedGame();
     return;
   }
 
@@ -851,8 +1511,45 @@ root.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "simplified-toggle-hand-card" && appState.simplifiedGame?.phase === "playing") {
+    handleToggleSimplifiedHandCard(actionTarget.dataset.cardId);
+    return;
+  }
+
+  if (action === "simplified-set-trait" && appState.simplifiedGame?.phase === "playing") {
+    appState.selectedTrait = actionTarget.dataset.trait;
+    render();
+    return;
+  }
+
+  if (action === "simplified-clear-selection") {
+    clearSimplifiedSelection();
+    render();
+    return;
+  }
+
+  if (action === "simplified-play-expedition" && appState.simplifiedGame?.phase === "playing") {
+    handleSimplifiedPlayExpedition();
+    return;
+  }
+
+  if (action === "simplified-draw-deck" && appState.simplifiedGame?.phase === "playing") {
+    handleSimplifiedDrawFromDeck();
+    return;
+  }
+
+  if (action === "simplified-take-display" && appState.simplifiedGame?.phase === "playing") {
+    handleSimplifiedTakeFromDisplay(actionTarget.dataset.cardId);
+    return;
+  }
+
   if (action === "clear-save") {
     clearCurrentGame();
+    return;
+  }
+
+  if (action === "clear-simplified-save") {
+    clearSimplifiedCurrentGame();
     return;
   }
 
@@ -865,6 +1562,11 @@ root.addEventListener("click", (event) => {
 
   if (action === "reset-draft") {
     resetDraft();
+    return;
+  }
+
+  if (action === "reset-simplified-draft") {
+    resetSimplifiedDraft();
   }
 });
 
@@ -886,6 +1588,21 @@ root.addEventListener("input", (event) => {
     appState.playerNames[index] = fieldTarget.value;
     return;
   }
+
+  if (field === "simplifiedTableName") {
+    appState.simplifiedTableName = fieldTarget.value;
+    return;
+  }
+
+  if (field === "simplifiedPlayerName") {
+    const index = Number(fieldTarget.dataset.playerIndex);
+    appState.simplifiedPlayerNames[index] = fieldTarget.value;
+    return;
+  }
+
+  if (field === "modeSelect") {
+    navigate(fieldTarget.value === "simplified" ? "simplified-home" : "home");
+  }
 });
 
 root.addEventListener("change", (event) => {
@@ -897,6 +1614,13 @@ root.addEventListener("change", (event) => {
   if (fieldTarget.dataset.field === "playerCount") {
     appState.playerCount = Number(fieldTarget.value);
     ensurePlayerDraft();
+    render();
+    return;
+  }
+
+  if (fieldTarget.dataset.field === "simplifiedPlayerCount") {
+    appState.simplifiedPlayerCount = Number(fieldTarget.value);
+    ensureSimplifiedPlayerDraft();
     render();
   }
 });
