@@ -161,6 +161,36 @@ test("playExpedition rejeita lider incluido em selectedCardIds", () => {
   );
 });
 
+test("playExpedition rejeita selectedTrait invalido", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+  ];
+
+  assert.throws(
+    () => playExpedition(game, "player-1", "blue-guide", "rarity", ["blue-botanist"]),
+    { message: "Traço inválido para expedição." },
+  );
+});
+
+test("playExpedition rejeita IDs duplicados em selectedCardIds", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+  ];
+
+  assert.throws(
+    () =>
+      playExpedition(game, "player-1", "blue-guide", "color", [
+        "blue-botanist",
+        "blue-botanist",
+      ]),
+    { message: "Carta duplicada em selectedCardIds." },
+  );
+});
+
 test("playExpedition por cor avanca trilha, salva expedicao e esvazia a mao", () => {
   const game = setupGame(["Ana", "Beto"], fixedRng);
   game.players[0].hand = [

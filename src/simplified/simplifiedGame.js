@@ -192,6 +192,14 @@ export function playExpedition(game, playerId, leaderCardId, selectedTrait, sele
     throw new Error("O líder não deve ser incluído em selectedCardIds.");
   }
 
+  if (selectedTrait !== "color" && selectedTrait !== "role") {
+    throw new Error("Traço inválido para expedição.");
+  }
+
+  if (new Set(selectedCardIds).size !== selectedCardIds.length) {
+    throw new Error("Carta duplicada em selectedCardIds.");
+  }
+
   const player = game.players.find((p) => p.id === playerId);
   if (!player) {
     throw new Error("Jogador não encontrado.");
@@ -214,22 +222,14 @@ export function playExpedition(game, playerId, leaderCardId, selectedTrait, sele
     throw new Error("Expedição inválida: carta não corresponde ao critério escolhido.");
   }
 
-  const next = clone(game);
-  const nextPlayer = next.players.find((p) => p.id === playerId);
-
   const expedition = {
     leader: clone(leader),
     cards: clone(selectedCards),
     selectedTrait,
   };
 
-  const expeditionSize = 1 + selectedCards.length;
-  if (expeditionSize >= 2) {
-    nextPlayer.sitePositions[leader.color] = Math.min(
-      nextPlayer.sitePositions[leader.color] + 1,
-      MAX_SITE_POSITION,
-    );
-  }
+  const next = advanceSite(game, playerId, expedition);
+  const nextPlayer = next.players.find((p) => p.id === playerId);
 
   nextPlayer.expeditions.push(expedition);
 
