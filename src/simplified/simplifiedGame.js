@@ -156,6 +156,37 @@ export function setupGame(playerNames, rng = Math.random) {
     phase: "playing",
   };
 }
+
+// === ETAPA 3: Expedições e avanço nas trilhas ===
+
+function clone(value) {
+  return structuredClone(value);
+}
+
+export function validateExpedition(leader, selectedCards, selectedTrait) {
+  if (selectedTrait === "color") {
+    return selectedCards.every((card) => card.color === leader.color);
+  }
+  if (selectedTrait === "role") {
+    return selectedCards.every((card) => card.role === leader.role);
+  }
+  return false;
+}
+
+export function advanceSite(game, playerId, expedition) {
+  const size = 1 + expedition.cards.length;
+  if (size < 2) return game;
+
+  const next = clone(game);
+  const player = next.players.find((p) => p.id === playerId);
+  const leaderColor = expedition.leader.color;
+  player.sitePositions[leaderColor] = Math.min(
+    player.sitePositions[leaderColor] + 1,
+    MAX_SITE_POSITION,
+  );
+  return next;
+}
+
 export function createDeck() {
   const cards = [];
 
@@ -294,23 +325,6 @@ export function drawFromDeck(game, playerId, rng = Math.random) {
 
   return applyEndTurn(next);
 }
-
-export function validateExpedition(leader, selectedCards, selectedTrait) {
-  if (!leader) {
-    return false;
-  }
-
-  if (selectedTrait === "color") {
-    return selectedCards.every((card) => card.color === leader.color);
-  }
-
-  if (selectedTrait === "role") {
-    return selectedCards.every((card) => card.role === leader.role);
-  }
-
-  return false;
-}
-
 export function playExpedition(
   game,
   playerId,

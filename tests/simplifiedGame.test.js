@@ -12,7 +12,10 @@ import {
   ROLES,
   SITE_COLORS,
   TOTAL_SEASONS,
+  advanceSite,
+  playExpedition,
   setupGame,
+  validateExpedition,
 } from "../src/simplified/simplifiedGame.js";
 
 function fixedRng() {
@@ -95,4 +98,253 @@ test("setupGame rejeita configuracoes invalidas da etapa 1", () => {
   assert.throws(() => setupGame(["Ana", "   "], fixedRng), {
     message: "Todos os jogadores precisam ter um nome válido.",
   });
+});
+// === ETAPA 3 ===
+
+test("validateExpedition aceita expedicao valida por cor", () => {
+  const leader = { id: "blue-guide", color: "blue", role: "guide" };
+  const selected = [
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+    { id: "blue-physician", color: "blue", role: "physician" },
+  ];
+
+  assert.equal(validateExpedition(leader, selected, "color"), true);
+});
+
+test("validateExpedition aceita expedicao valida por personagem", () => {
+  const leader = { id: "blue-guide", color: "blue", role: "guide" };
+  const selected = [
+    { id: "green-guide", color: "green", role: "guide" },
+    { id: "red-guide", color: "red", role: "guide" },
+  ];
+
+  assert.equal(validateExpedition(leader, selected, "role"), true);
+});
+
+test("validateExpedition rejeita expedicao invalida por cor", () => {
+  const leader = { id: "blue-guide", color: "blue", role: "guide" };
+  const selected = [
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+    { id: "green-guide", color: "green", role: "guide" },
+  ];
+
+  assert.equal(validateExpedition(leader, selected, "color"), false);
+});
+
+test("validateExpedition rejeita expedicao invalida por personagem", () => {
+  const leader = { id: "blue-guide", color: "blue", role: "guide" };
+  const selected = [
+    { id: "green-guide", color: "green", role: "guide" },
+    { id: "red-botanist", color: "red", role: "botanist" },
+  ];
+
+  assert.equal(validateExpedition(leader, selected, "role"), false);
+});
+
+test("validateExpedition aceita expedicao sem cartas selecionadas", () => {
+  const leader = { id: "blue-guide", color: "blue", role: "guide" };
+
+  assert.equal(validateExpedition(leader, [], "color"), true);
+  assert.equal(validateExpedition(leader, [], "role"), true);
+});
+
+test("playExpedition rejeita lider incluido em selectedCardIds", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+  ];
+
+  assert.throws(
+    () => playExpedition(game, "player-1", "blue-guide", "color", ["blue-guide", "blue-botanist"]),
+    { message: "O líder não deve ser incluído em selectedCardIds." },
+  );
+});
+
+test("playExpedition rejeita selectedTrait invalido", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+  ];
+
+  assert.throws(
+    () => playExpedition(game, "player-1", "blue-guide", "rarity", ["blue-botanist"]),
+    { message: "Traço inválido para expedição." },
+  );
+});
+
+test("playExpedition rejeita IDs duplicados em selectedCardIds", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+  ];
+
+  assert.throws(
+    () =>
+      playExpedition(game, "player-1", "blue-guide", "color", [
+        "blue-botanist",
+        "blue-botanist",
+      ]),
+    { message: "Carta não encontrada na mão ou duplicada." },
+  );
+});
+
+test("playExpedition por cor avanca trilha, salva expedicao e esvazia a mao", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+    { id: "green-linguist", color: "green", role: "linguist" },
+  ];
+
+  const next = playExpedition(game, "player-1", "blue-guide", "color", ["blue-botanist"]);
+  const player = next.players[0];
+
+  assert.equal(player.hand.length, 0);
+  assert.equal(player.expeditions.length, 1);
+  assert.equal(player.expeditions[0].leader.id, "blue-guide");
+  assert.equal(player.expeditions[0].cards.length, 1);
+  assert.equal(player.expeditions[0].selectedTrait, "color");
+  assert.equal(player.sitePositions.blue, 1);
+});
+
+test("playExpedition por personagem avanca trilha da cor do lider", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "green-guide", color: "green", role: "guide" },
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "red-guide", color: "red", role: "guide" },
+  ];
+
+  const next = playExpedition(game, "player-1", "green-guide", "role", ["blue-guide", "red-guide"]);
+  const player = next.players[0];
+
+  assert.equal(player.sitePositions.green, 1);
+  assert.equal(player.sitePositions.blue, 0);
+  assert.equal(player.expeditions[0].cards.length, 2);
+});
+
+test("playExpedition com apenas o lider nao avanca trilha", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "green-linguist", color: "green", role: "linguist" },
+  ];
+
+  const next = playExpedition(game, "player-1", "blue-guide", "color", []);
+  const player = next.players[0];
+
+  assert.equal(player.sitePositions.blue, 0);
+  assert.equal(player.expeditions.length, 1);
+  assert.equal(player.expeditions[0].cards.length, 0);
+});
+
+test("playExpedition envia cartas restantes para o display", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+    { id: "green-linguist", color: "green", role: "linguist" },
+    { id: "red-patron", color: "red", role: "patron" },
+  ];
+
+  const next = playExpedition(game, "player-1", "blue-guide", "color", ["blue-botanist"]);
+
+  assert.equal(next.display.length, 2);
+  assert.ok(next.display.some((c) => c.id === "green-linguist"));
+  assert.ok(next.display.some((c) => c.id === "red-patron"));
+  assert.equal(next.players[0].hand.length, 0);
+});
+
+test("playExpedition rejeita carta que nao corresponde ao criterio", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "green-botanist", color: "green", role: "botanist" },
+  ];
+
+  assert.throws(
+    () => playExpedition(game, "player-1", "blue-guide", "color", ["green-botanist"]),
+    { message: "Expedição inválida: carta não corresponde ao critério escolhido." },
+  );
+});
+
+test("playExpedition rejeita carta nao encontrada na mao", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [{ id: "blue-guide", color: "blue", role: "guide" }];
+
+  assert.throws(
+    () => playExpedition(game, "player-1", "blue-guide", "color", ["carta-inexistente"]),
+    { message: "Carta não encontrada na mão." },
+  );
+});
+
+test("playExpedition nao muta o estado original", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+  ];
+
+  playExpedition(game, "player-1", "blue-guide", "color", ["blue-botanist"]);
+
+  assert.equal(game.players[0].hand.length, 2);
+  assert.equal(game.players[0].expeditions.length, 0);
+});
+
+test("advanceSite avanca a posicao na trilha correta", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  const expedition = {
+    leader: { id: "blue-guide", color: "blue", role: "guide" },
+    cards: [{ id: "blue-botanist", color: "blue", role: "botanist" }],
+    selectedTrait: "color",
+  };
+
+  const next = advanceSite(game, "player-1", expedition);
+
+  assert.equal(next.players[0].sitePositions.blue, 1);
+  assert.equal(next.players[0].sitePositions.green, 0);
+});
+
+test("advanceSite nao avanca com expedicao de tamanho 1", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  const expedition = {
+    leader: { id: "blue-guide", color: "blue", role: "guide" },
+    cards: [],
+    selectedTrait: "color",
+  };
+
+  const next = advanceSite(game, "player-1", expedition);
+
+  assert.equal(next.players[0].sitePositions.blue, 0);
+  assert.equal(next === game, true);
+});
+
+test("advanceSite nao ultrapassa MAX_SITE_POSITION", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].sitePositions.blue = MAX_SITE_POSITION;
+  const expedition = {
+    leader: { id: "blue-guide", color: "blue", role: "guide" },
+    cards: [{ id: "blue-botanist", color: "blue", role: "botanist" }],
+    selectedTrait: "color",
+  };
+
+  const next = advanceSite(game, "player-1", expedition);
+
+  assert.equal(next.players[0].sitePositions.blue, MAX_SITE_POSITION);
+});
+
+test("playExpedition nao ultrapassa MAX_SITE_POSITION na trilha", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+  game.players[0].sitePositions.blue = MAX_SITE_POSITION;
+  game.players[0].hand = [
+    { id: "blue-guide", color: "blue", role: "guide" },
+    { id: "blue-botanist", color: "blue", role: "botanist" },
+  ];
+
+  const next = playExpedition(game, "player-1", "blue-guide", "color", ["blue-botanist"]);
+
+  assert.equal(next.players[0].sitePositions.blue, MAX_SITE_POSITION);
 });
