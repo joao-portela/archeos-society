@@ -187,59 +187,6 @@ export function advanceSite(game, playerId, expedition) {
   return next;
 }
 
-export function playExpedition(game, playerId, leaderCardId, selectedTrait, selectedCardIds) {
-  if (selectedCardIds.includes(leaderCardId)) {
-    throw new Error("O líder não deve ser incluído em selectedCardIds.");
-  }
-
-  if (selectedTrait !== "color" && selectedTrait !== "role") {
-    throw new Error("Traço inválido para expedição.");
-  }
-
-  if (new Set(selectedCardIds).size !== selectedCardIds.length) {
-    throw new Error("Carta duplicada em selectedCardIds.");
-  }
-
-  const player = game.players.find((p) => p.id === playerId);
-  if (!player) {
-    throw new Error("Jogador não encontrado.");
-  }
-
-  const leader = player.hand.find((c) => c.id === leaderCardId);
-  if (!leader) {
-    throw new Error("Carta não encontrada na mão ou no display.");
-  }
-
-  const selectedCards = selectedCardIds.map((id) => {
-    const card = player.hand.find((c) => c.id === id);
-    if (!card) {
-      throw new Error("Carta não encontrada na mão ou no display.");
-    }
-    return card;
-  });
-
-  if (!validateExpedition(leader, selectedCards, selectedTrait)) {
-    throw new Error("Expedição inválida: carta não corresponde ao critério escolhido.");
-  }
-
-  const expedition = {
-    leader: clone(leader),
-    cards: clone(selectedCards),
-    selectedTrait,
-  };
-
-  const next = advanceSite(game, playerId, expedition);
-  const nextPlayer = next.players.find((p) => p.id === playerId);
-
-  nextPlayer.expeditions.push(expedition);
-
-  const expeditionCardIds = new Set([leaderCardId, ...selectedCardIds]);
-  const remainingCards = nextPlayer.hand.filter((c) => !expeditionCardIds.has(c.id));
-  next.display.push(...remainingCards);
-  nextPlayer.hand = [];
-
-  return next;
-}
 export function createDeck() {
   const cards = [];
 
@@ -378,23 +325,6 @@ export function drawFromDeck(game, playerId, rng = Math.random) {
 
   return applyEndTurn(next);
 }
-
-export function validateExpedition(leader, selectedCards, selectedTrait) {
-  if (!leader) {
-    return false;
-  }
-
-  if (selectedTrait === "color") {
-    return selectedCards.every((card) => card.color === leader.color);
-  }
-
-  if (selectedTrait === "role") {
-    return selectedCards.every((card) => card.role === leader.role);
-  }
-
-  return false;
-}
-
 export function playExpedition(
   game,
   playerId,

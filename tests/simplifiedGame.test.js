@@ -187,7 +187,7 @@ test("playExpedition rejeita IDs duplicados em selectedCardIds", () => {
         "blue-botanist",
         "blue-botanist",
       ]),
-    { message: "Carta duplicada em selectedCardIds." },
+    { message: "Carta não encontrada na mão ou duplicada." },
   );
 });
 
@@ -277,7 +277,7 @@ test("playExpedition rejeita carta nao encontrada na mao", () => {
 
   assert.throws(
     () => playExpedition(game, "player-1", "blue-guide", "color", ["carta-inexistente"]),
-    { message: "Carta não encontrada na mão ou no display." },
+    { message: "Carta não encontrada na mão." },
   );
 });
 
