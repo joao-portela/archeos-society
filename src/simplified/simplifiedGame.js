@@ -156,7 +156,6 @@ export function setupGame(playerNames, rng = Math.random) {
     phase: "playing",
   };
 }
-
 export function createDeck() {
   const cards = [];
 
