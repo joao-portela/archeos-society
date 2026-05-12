@@ -7,7 +7,7 @@ export const TOTAL_SEASONS = 3;
 export const MONKEYS_TO_END_SEASON = 3;
 export const MAX_SITE_POSITION = 5;
 export const NORMAL_CARDS_PER_DECK = 42;
-export const MONKEY_CARDS_PER_DECK = 3;
+export const MONKEY_CARDS_PER_DECK = 12;
 
 export const SITE_COLORS = ["blue", "green", "red", "yellow", "purple", "orange"];
 export const ROLES = [
