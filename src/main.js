@@ -1,17 +1,18 @@
 import { ARTIFACT_TYPES, COUNSELORS, SPECIALIST_TYPES } from "./data/gameData.js";
 import {
+  createDeck,
+  createInitialDisplay,
   createGame,
+  drawFromDeck,
   getCurrentPlayer,
   getPlayableSitesForSpecialist,
   getScoreboard,
+  MAX_HAND_SIZE,
   performExpedition,
   resolveBlockedTurn,
+  shuffleDeck,
+  takeFromDisplay,
 } from "./engine/gameEngine.js";
-import {
-  MAX_PLAYERS,
-  MIN_PLAYERS,
-  setupGame,
-} from "./simplified/simplifiedGame.js";
 
 const STORAGE_KEYS = {
   currentGame: "archeos.currentGame",
@@ -20,12 +21,11 @@ const STORAGE_KEYS = {
 
 const root = document.querySelector("#screen-root");
 const menuButtons = [...document.querySelectorAll(".menu-button")];
-const defaultPlayers = ["Ayla", "Bruno", "Caio", "Dani", "Enzo", "Fabi"];
+const defaultPlayers = ["Ayla", "Bruno", "Caio", "Dani", "Enzo"];
 
 const appState = {
   screen: "home",
   tableName: "Mesa da apresentação",
-  gameVersion: "simplified",
   playerCount: 2,
   playerNames: defaultPlayers.slice(0, 2),
   game: loadCurrentGame(),
@@ -47,17 +47,9 @@ function saveJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-function isSimplifiedGame(game) {
-  return game?.mode === "simplified" || Boolean(game?.phase);
-}
-
 function loadCurrentGame() {
   const savedGame = loadJson(STORAGE_KEYS.currentGame, null);
-  if (!savedGame) {
-    return null;
-  }
-
-  return isSimplifiedGame(savedGame) ? savedGame : resolveBlockedTurn(savedGame);
+  return savedGame ? resolveBlockedTurn(ensureCardState(savedGame)) : null;
 }
 
 function loadRanking() {
@@ -70,19 +62,42 @@ function saveCurrentGame() {
   }
 }
 
+function ensureCardState(game) {
+  if (!game) {
+    return game;
+  }
+
+  if (!Array.isArray(game.deck)) {
+    const baseState = {
+      ...game,
+      deck: shuffleDeck(createDeck()),
+      display: [],
+      monkeysRevealed: game.monkeysRevealed ?? 0,
+    };
+    return createInitialDisplay(baseState);
+  }
+
+  if (!Array.isArray(game.display)) {
+    return createInitialDisplay({
+      ...game,
+      display: [],
+      monkeysRevealed: game.monkeysRevealed ?? 0,
+    });
+  }
+
+  return game;
+}
+
 function normalizeCurrentGame() {
-  if (!appState.game || isSimplifiedGame(appState.game) || appState.game.status !== "active") {
+  if (!appState.game || appState.game.status !== "active") {
     return;
   }
 
-  appState.game = resolveBlockedTurn(appState.game);
+  appState.game = resolveBlockedTurn(ensureCardState(appState.game));
   saveCurrentGame();
 }
 
 function ensurePlayerDraft() {
-  const maxPlayers = appState.gameVersion === "simplified" ? MAX_PLAYERS : 5;
-  appState.playerCount = Math.min(Math.max(appState.playerCount, MIN_PLAYERS), maxPlayers);
-
   while (appState.playerNames.length < appState.playerCount) {
     appState.playerNames.push(defaultPlayers[appState.playerNames.length]);
   }
@@ -106,6 +121,17 @@ function formatArtifactLabel(artifactKey, count) {
   return `${artifact?.name ?? artifactKey}: ${count}`;
 }
 
+function titleCase(value) {
+  if (!value) {
+    return "";
+  }
+  return `${value[0].toUpperCase()}${value.slice(1)}`;
+}
+
+function formatDisplayCardLabel(card) {
+  return `${titleCase(card.color)} / ${titleCase(card.role)}`;
+}
+
 function setActiveMenu(targetScreen) {
   for (const button of menuButtons) {
     button.classList.toggle("is-active", button.dataset.screen === targetScreen);
@@ -118,7 +144,7 @@ function navigate(screen) {
 }
 
 function registerFinishedGame(game) {
-  if (isSimplifiedGame(game) || game.status !== "finished") {
+  if (game.status !== "finished") {
     return;
   }
 
@@ -148,28 +174,12 @@ function registerFinishedGame(game) {
 function startNewGame() {
   ensurePlayerDraft();
 
-  const tableName = appState.tableName.trim() || "Mesa da apresentação";
-  const playerNames = appState.playerNames.map((name, index) => {
-    return name.trim() || `Jogador ${index + 1}`;
+  appState.game = createGame({
+    tableName: appState.tableName.trim() || "Mesa da apresentação",
+    playerNames: appState.playerNames.map((name, index) => {
+      return name.trim() || `Jogador ${index + 1}`;
+    }),
   });
-
-  if (appState.gameVersion === "simplified") {
-    appState.game = {
-      ...setupGame(playerNames),
-      id: `game-${Date.now()}`,
-      tableName,
-      mode: "simplified",
-      createdAt: new Date().toISOString(),
-    };
-  } else {
-    appState.game = {
-      ...createGame({
-        tableName,
-        playerNames,
-      }),
-      mode: "legacy",
-    };
-  }
 
   appState.selectedSpecialistId = null;
   saveCurrentGame();
@@ -228,6 +238,38 @@ function handlePlay(siteId) {
   render();
 }
 
+function applyGameAction(actionFn) {
+  try {
+    appState.game = actionFn(appState.game);
+    saveCurrentGame();
+    render();
+  } catch (error) {
+    if (appState.game) {
+      appState.game.log.push(`Erro: ${error.message}`);
+      saveCurrentGame();
+      render();
+    }
+  }
+}
+
+function handleDrawFromDeck() {
+  const currentPlayer = getCurrentPlayer(appState.game);
+  if (!currentPlayer) {
+    return;
+  }
+
+  applyGameAction((state) => drawFromDeck(state, currentPlayer.id));
+}
+
+function handleTakeFromDisplay(cardId) {
+  const currentPlayer = getCurrentPlayer(appState.game);
+  if (!currentPlayer) {
+    return;
+  }
+
+  applyGameAction((state) => takeFromDisplay(state, currentPlayer.id, cardId));
+}
+
 function clearCurrentGame() {
   appState.game = null;
   appState.selectedSpecialistId = null;
@@ -237,7 +279,6 @@ function clearCurrentGame() {
 
 function resetDraft() {
   appState.tableName = "Mesa da apresentação";
-  appState.gameVersion = "simplified";
   appState.playerCount = 2;
   appState.playerNames = defaultPlayers.slice(0, 2);
   render();
@@ -252,23 +293,6 @@ function screenHeader(title, subtitle) {
 
 function renderHomeScreen() {
   ensurePlayerDraft();
-  const maxPlayers = appState.gameVersion === "simplified" ? MAX_PLAYERS : 5;
-  const versionOptions = [
-    {
-      value: "simplified",
-      label: "Archeos simplificado",
-    },
-    {
-      value: "legacy",
-      label: "Demo legada",
-    },
-  ]
-    .map((version) => {
-      return `<option value="${version.value}" ${
-        appState.gameVersion === version.value ? "selected" : ""
-      }>${version.label}</option>`;
-    })
-    .join("");
 
   const playerFields = appState.playerNames
     .map((name, index) => {
@@ -293,24 +317,16 @@ function renderHomeScreen() {
   return `
     ${screenHeader(
       "Configurar nova partida",
-      "Escolha a versão da regra e monte uma mesa local em hot-seat."
+      "Monte uma mesa local com 2 a 5 jogadores. Esta entrega já executa o loop principal da partida em hot-seat."
     )}
     <div class="content-grid">
       <section class="panel">
         <h3>Setup rápido</h3>
         <div class="form-grid">
           <div class="field">
-            <label for="game-version">Versão da partida</label>
-            <select id="game-version" data-field="gameVersion">
-              ${versionOptions}
-            </select>
-          </div>
-          <div class="field">
             <label for="player-count">Quantidade de jogadores</label>
             <select id="player-count" data-field="playerCount">
-              ${Array.from({ length: maxPlayers - MIN_PLAYERS + 1 }, (_, index) => {
-                return index + MIN_PLAYERS;
-              })
+              ${[2, 3, 4, 5]
                 .map((count) => {
                   return `<option value="${count}" ${
                     appState.playerCount === count ? "selected" : ""
@@ -333,7 +349,7 @@ function renderHomeScreen() {
           ${playerFields}
         </div>
         <div class="actions">
-          <button class="primary-button" data-action="start-game">Iniciar partida</button>
+          <button class="primary-button" data-action="start-game">Iniciar demo</button>
           <button class="secondary-button" data-action="open-screen" data-screen-target="tutorial">
             Ver tutorial
           </button>
@@ -341,10 +357,10 @@ function renderHomeScreen() {
         </div>
       </section>
       <section class="panel">
-        <h3>Versões disponíveis</h3>
+        <h3>Escopo desta demo</h3>
         <p class="meta">
-          Archeos simplificado começa pela estrutura oficial da etapa 1. A demo legada
-          preserva o fluxo jogável antigo com sítios, especialistas e pontuação final.
+          Menu principal, setup, partida local em turnos, coleta de artefatos,
+          pontuação por conselheiros, ranking local e autosave por navegador.
         </p>
         ${continueHint}
       </section>
@@ -366,11 +382,8 @@ function renderContinueScreen() {
     `;
   }
 
-  const simplified = isSimplifiedGame(appState.game);
   const winnerLabel =
-    simplified
-      ? `<p class="meta">Status: ${appState.game.phase}. Temporada ${appState.game.currentSeason}/${appState.game.totalSeasons}.</p>`
-      : appState.game.status === "finished"
+    appState.game.status === "finished"
       ? `<p class="meta">Status: encerrada. Pontuação final já calculada.</p>`
       : `<p class="meta">Status: em andamento na rodada ${appState.game.currentRound}.</p>`;
 
@@ -387,7 +400,7 @@ function renderContinueScreen() {
         .join(", ")}</p>
       <div class="actions">
         <button class="primary-button" data-action="load-game">
-          ${!simplified && appState.game.status === "finished" ? "Rever resultado" : "Carregar partida"}
+          ${appState.game.status === "finished" ? "Rever resultado" : "Carregar partida"}
         </button>
         <button class="secondary-button" data-action="clear-save">Limpar autosave</button>
       </div>
@@ -522,11 +535,6 @@ function renderGameScreen() {
   }
 
   normalizeCurrentGame();
-
-  if (isSimplifiedGame(appState.game)) {
-    return renderSimplifiedGameScreen();
-  }
-
   syncSelectedSpecialist();
 
   const game = appState.game;
@@ -539,6 +547,20 @@ function renderGameScreen() {
       ? getPlayableSitesForSpecialist(game, selectedSpecialist.key).map((site) => site.id)
       : [],
   );
+  const canGainCards =
+    game.status === "active" && currentPlayer && currentPlayer.hand.length < MAX_HAND_SIZE;
+  const displayCards = (game.display ?? []).map((card) => {
+    return `
+      <button
+        class="display-card"
+        data-action="take-display"
+        data-card-id="${card.id}"
+        ${!canGainCards ? "disabled" : ""}
+      >
+        <span>${escapeHtml(formatDisplayCardLabel(card))}</span>
+      </button>
+    `;
+  });
 
   const scoreboard = getScoreboard(game)
     .map((entry) => {
@@ -601,19 +623,35 @@ function renderGameScreen() {
 
   const handCards = currentPlayer
     ? currentPlayer.hand
-        .map((specialist) => {
-          const isSelected = specialist.id === appState.selectedSpecialistId;
-          const playable = getPlayableSitesForSpecialist(game, specialist.key).length > 0;
+        .map((card) => {
+          const isSpecialist = Boolean(card?.key);
+          const isSelected = card.id === appState.selectedSpecialistId;
+          const playable = isSpecialist
+            ? getPlayableSitesForSpecialist(game, card.key).length > 0
+            : false;
+          const label = isSpecialist
+            ? escapeHtml(card.name ?? "Especialista")
+            : escapeHtml(formatDisplayCardLabel(card));
+          const helperText = isSpecialist
+            ? playable
+              ? "Pode agir"
+              : "Sem sítio compatível"
+            : "Carta comum (usada em expedições)";
 
           return `
             <button
               class="specialist-card ${isSelected ? "is-selected" : ""}"
               data-action="select-specialist"
-              data-specialist-id="${specialist.id}"
+              data-specialist-id="${card.id}"
               ${!playable ? "disabled" : ""}
+              title="${
+                isSpecialist
+                  ? ""
+                  : "Cartas comuns só servem para formar expedições."
+              }"
             >
-              <strong>${escapeHtml(specialist.name)}</strong>
-              <span>${playable ? "Pode agir" : "Sem sítio compatível"}</span>
+              <strong>${label}</strong>
+              <span>${helperText}</span>
             </button>
           `;
         })
@@ -687,6 +725,19 @@ function renderGameScreen() {
             ? `
               <p class="meta"><strong>${escapeHtml(currentPlayer.name)}</strong></p>
               <div class="specialist-grid">${handCards}</div>
+              <div class="panel panel-stack">
+                <h4>Vitrine de cartas</h4>
+                <div class="display-grid">${displayCards.join("")}</div>
+                <div class="actions">
+                  <button
+                    class="primary-button"
+                    data-action="draw-deck"
+                    ${!canGainCards ? "disabled" : ""}
+                  >
+                    Comprar do baralho
+                  </button>
+                </div>
+              </div>
             `
             : `<p class="meta">A partida já terminou. Revise o resultado abaixo.</p>`
         }
@@ -718,26 +769,6 @@ function renderGameScreen() {
         <ul class="meta-list log-list">${logItems}</ul>
       </section>
     </div>
-  `;
-}
-
-function renderSimplifiedGameScreen() {
-  const game = appState.game;
-
-  return `
-    ${screenHeader(
-      "Archeos simplificado",
-      "WIP: fluxo novo em construção."
-    )}
-    <section class="panel empty-state">
-      <div>
-        <h3>WIP</h3>
-        <p class="meta">A partida "${escapeHtml(game.tableName)}" foi criada no fluxo simplificado.</p>
-        <div class="actions">
-          <button class="secondary-button" data-action="clear-save">Encerrar mesa atual</button>
-        </div>
-      </div>
-    </section>
   `;
 }
 
@@ -810,6 +841,16 @@ root.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "draw-deck" && appState.game?.status === "active") {
+    handleDrawFromDeck();
+    return;
+  }
+
+  if (action === "take-display" && appState.game?.status === "active") {
+    handleTakeFromDisplay(actionTarget.dataset.cardId);
+    return;
+  }
+
   if (action === "clear-save") {
     clearCurrentGame();
     return;
@@ -840,13 +881,6 @@ root.addEventListener("input", (event) => {
     return;
   }
 
-  if (field === "gameVersion") {
-    appState.gameVersion = fieldTarget.value;
-    ensurePlayerDraft();
-    render();
-    return;
-  }
-
   if (field === "playerName") {
     const index = Number(fieldTarget.dataset.playerIndex);
     appState.playerNames[index] = fieldTarget.value;
@@ -857,13 +891,6 @@ root.addEventListener("input", (event) => {
 root.addEventListener("change", (event) => {
   const fieldTarget = event.target.closest("[data-field]");
   if (!fieldTarget) {
-    return;
-  }
-
-  if (fieldTarget.dataset.field === "gameVersion") {
-    appState.gameVersion = fieldTarget.value;
-    ensurePlayerDraft();
-    render();
     return;
   }
 

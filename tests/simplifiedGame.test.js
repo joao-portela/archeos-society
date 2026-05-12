@@ -99,7 +99,6 @@ test("setupGame rejeita configuracoes invalidas da etapa 1", () => {
     message: "Todos os jogadores precisam ter um nome válido.",
   });
 });
-
 // === ETAPA 3 ===
 
 test("validateExpedition aceita expedicao valida por cor", () => {
