@@ -372,13 +372,6 @@ export function playExpedition(
   return applyEndTurn(next);
 }
 
-export function advanceSite(game, playerId, expedition) {
-  const next = cloneGame(game);
-  const playerIndex = getPlayerIndex(next, playerId);
-  applyAdvanceSite(next.players[playerIndex], expedition);
-  return next;
-}
-
 export function endTurn(game) {
   const next = cloneGame(game);
   return applyEndTurn(next);
@@ -399,42 +392,44 @@ export function endSeason(game, monkeyRevealerIndex, rng = Math.random) {
     throw new Error("Jogador revelador inválido.");
   }
 
-  next.phase = "seasonEnd";
-  scoreSeason(next);
+  while (true) {
+    next.phase = "seasonEnd";
+    scoreSeason(next);
 
-  for (const player of next.players) {
-    player.expeditions = [];
-    player.hand = [];
+    for (const player of next.players) {
+      player.expeditions = [];
+      player.hand = [];
+    }
+
+    next.display = [];
+    next.revealedMonkeys = 0;
+    next.currentSeason += 1;
+    next.firstPlayerIndex = monkeyRevealerIndex;
+    next.currentPlayerIndex = monkeyRevealerIndex;
+
+    if (next.currentSeason > next.totalSeasons) {
+      return endGame(next);
+    }
+
+    next.deck = shuffleDeck(createDeck(), rng);
+
+    const displayResult = drawInitialDisplay(
+      next.deck,
+      next.players.length,
+      next.revealedMonkeys,
+    );
+
+    next.deck = displayResult.deck;
+    next.display = displayResult.display;
+    next.revealedMonkeys = displayResult.revealedMonkeys;
+    next.phase = "playing";
+
+    if (next.revealedMonkeys >= MONKEYS_TO_END_SEASON) {
+      continue;
+    }
+
+    return next;
   }
-
-  next.display = [];
-  next.revealedMonkeys = 0;
-  next.currentSeason += 1;
-  next.firstPlayerIndex = monkeyRevealerIndex;
-  next.currentPlayerIndex = monkeyRevealerIndex;
-
-  if (next.currentSeason > next.totalSeasons) {
-    return endGame(next);
-  }
-
-  next.deck = shuffleDeck(createDeck(), rng);
-
-  const displayResult = drawInitialDisplay(
-    next.deck,
-    next.players.length,
-    next.revealedMonkeys,
-  );
-
-  next.deck = displayResult.deck;
-  next.display = displayResult.display;
-  next.revealedMonkeys = displayResult.revealedMonkeys;
-  next.phase = "playing";
-
-  if (next.revealedMonkeys >= MONKEYS_TO_END_SEASON) {
-    return endSeason(next, next.currentPlayerIndex, rng);
-  }
-
-  return next;
 }
 
 export function endGame(game) {
@@ -442,7 +437,7 @@ export function endGame(game) {
   next.phase = "gameEnd";
 
   const scores = next.players.map((player) => player.score);
-  const maxScore = scores.length ? Math.max(...scores) : 0;
+  const maxScore = scores.length ? Math.max(...scores) : -Infinity;
   const winnerIds = next.players
     .filter((player) => player.score === maxScore)
     .map((player) => player.id);
