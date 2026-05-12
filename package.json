@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "start": "python -m http.server 4173",
+    "start": "python3 -m http.server 4173",
     "test": "node --test tests/gameEngine.test.js tests/scoring.test.js tests/simplifiedGame.test.js"
   }
 }

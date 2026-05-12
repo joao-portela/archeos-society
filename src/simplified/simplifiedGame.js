@@ -157,6 +157,10 @@ export function setupGame(playerNames, rng = Math.random) {
   };
 }
 
+export function getCurrentPlayer(game) {
+  return game.players[game.currentPlayerIndex] ?? null;
+}
+
 // === ETAPA 3: Expedições e avanço nas trilhas ===
 
 function clone(value) {

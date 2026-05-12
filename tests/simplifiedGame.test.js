@@ -13,6 +13,8 @@ import {
   SITE_COLORS,
   TOTAL_SEASONS,
   advanceSite,
+  createDeck,
+  getCurrentPlayer,
   playExpedition,
   setupGame,
   validateExpedition,
@@ -36,7 +38,7 @@ test("setupGame cria a estrutura base da etapa 1", () => {
   assert.equal(MONKEYS_TO_END_SEASON, 3);
   assert.equal(MAX_SITE_POSITION, 5);
   assert.equal(NORMAL_CARDS_PER_DECK, 42);
-  assert.equal(MONKEY_CARDS_PER_DECK, 3);
+  assert.equal(MONKEY_CARDS_PER_DECK, 10);
   assert.deepEqual(SITE_COLORS, ["blue", "green", "red", "yellow", "purple", "orange"]);
   assert.deepEqual(ROLES, [
     "guide",
@@ -73,6 +75,22 @@ test("setupGame cria a estrutura base da etapa 1", () => {
       orange: 0,
     });
   }
+});
+
+test("createDeck usa 42 cartas normais e 10 macacos", () => {
+  const deck = createDeck();
+  const monkeyCards = deck.filter((card) => card.type === "monkey");
+  const normalCards = deck.filter((card) => card.type !== "monkey");
+
+  assert.equal(deck.length, 52);
+  assert.equal(normalCards.length, NORMAL_CARDS_PER_DECK);
+  assert.equal(monkeyCards.length, MONKEY_CARDS_PER_DECK);
+});
+
+test("getCurrentPlayer retorna o jogador da vez", () => {
+  const game = setupGame(["Ana", "Beto"], fixedRng);
+
+  assert.equal(getCurrentPlayer(game)?.id, game.players[game.currentPlayerIndex].id);
 });
 
 test("setupGame aceita ate 6 jogadores e sorteia o primeiro jogador", () => {
